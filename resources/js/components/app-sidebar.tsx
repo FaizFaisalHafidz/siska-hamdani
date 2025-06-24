@@ -48,7 +48,7 @@ export function AppSidebar() {
                 title: 'Dashboard',
                 href: '/dashboard',
                 icon: LayoutGrid,
-                badge: 'New',
+                // badge: 'New',
                 description: 'Overview & Analytics - Lihat ringkasan performa bisnis dan analitik real-time'
             },
         ];
@@ -60,14 +60,14 @@ export function AppSidebar() {
                     title: 'Manajemen Produk',
                     href: '/admin/produk',
                     icon: Package,
-                    badge: 'Hot',
+                    // badge: 'Hot',
                     description: 'Kelola inventori produk - Tambah, edit, dan kelola stok produk dengan mudah'
                 },
                 {
                     title: 'Point of Sale',
                     href: '/pos',
                     icon: CreditCard,
-                    badge: 'Active',
+                    // badge: 'Active',
                     description: 'Transaksi penjualan - Proses pembayaran dan transaksi customer dengan cepat'
                 },
                 {
@@ -116,7 +116,7 @@ export function AppSidebar() {
                     title: 'Point of Sale',
                     href: '/pos',
                     icon: CreditCard,
-                    badge: 'Active',
+                    // badge: 'Active',
                     description: 'Proses penjualan - Interface kasir untuk melayani customer dan proses pembayaran'
                 },
                 {
