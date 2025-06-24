@@ -1,44 +1,44 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" @class(['dark' => ($appearance ?? 'light') == 'dark'])>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        {{-- Inline script to ensure light mode is default --}}
+        {{-- Force light mode only - no dark mode support --}}
         <script>
             (function() {
-                const appearance = '{{ $appearance ?? "light" }}';
-                
-                // Remove dark class by default
+                // Always remove dark class and keep light mode only
                 document.documentElement.classList.remove('dark');
                 
-                // Only apply dark mode if explicitly set to dark
-                if (appearance === 'dark') {
-                    document.documentElement.classList.add('dark');
-                }
-                
-                // Optional: Remove system preference detection to force light mode
-                // Comment out the lines below if you want to respect system preference
-                /*
-                else if (appearance === 'auto') {
-                    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    if (prefersDark) {
-                        document.documentElement.classList.add('dark');
+                // Prevent any dark mode activation
+                const style = document.createElement('style');
+                style.textContent = `
+                    html, html.dark {
+                        background-color: white !important;
+                        color: rgb(17, 24, 39) !important;
                     }
-                }
-                */
+                `;
+                document.head.appendChild(style);
             })();
         </script>
 
-        {{-- Inline style with light mode as default --}}
+        {{-- Light mode only styles --}}
         <style>
             html {
-                background-color: oklch(1 0 0); /* Light background */
+                background-color: white;
+                color: rgb(17, 24, 39);
             }
-
+            
+            /* Override any dark mode styles */
             html.dark {
-                background-color: oklch(0.145 0 0); /* Dark background */
+                background-color: white !important;
+                color: rgb(17, 24, 39) !important;
+            }
+            
+            /* Ensure all elements stay light */
+            * {
+                color-scheme: light only;
             }
         </style>
 
@@ -56,7 +56,7 @@
         @vite(['resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])
         @inertiaHead
     </head>
-    <body class="font-sans antialiased bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+    <body class="font-sans antialiased bg-white text-gray-900">
         @inertia
     </body>
 </html>
