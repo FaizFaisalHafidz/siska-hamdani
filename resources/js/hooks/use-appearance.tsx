@@ -1,14 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-export type Appearance = 'light' | 'dark' | 'system';
-
-const prefersDark = () => {
-    if (typeof window === 'undefined') {
-        return false;
-    }
-
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-};
+export type Appearance = 'light'; // Hanya light mode saja
 
 const setCookie = (name: string, value: string, days = 365) => {
     if (typeof document === 'undefined') {
@@ -20,53 +12,55 @@ const setCookie = (name: string, value: string, days = 365) => {
 };
 
 const applyTheme = (appearance: Appearance) => {
-    const isDark = appearance === 'dark' || (appearance === 'system' && prefersDark());
-
-    document.documentElement.classList.toggle('dark', isDark);
-};
-
-const mediaQuery = () => {
-    if (typeof window === 'undefined') {
-        return null;
+    // Selalu force light mode
+    document.documentElement.classList.remove('dark');
+    
+    // Tambahan: pastikan tidak ada dark class yang tersisa
+    if (typeof document !== 'undefined') {
+        document.documentElement.classList.remove('dark');
+        document.body.classList.remove('dark');
     }
-
-    return window.matchMedia('(prefers-color-scheme: dark)');
-};
-
-const handleSystemThemeChange = () => {
-    const currentAppearance = localStorage.getItem('appearance') as Appearance;
-    applyTheme(currentAppearance || 'system');
 };
 
 export function initializeTheme() {
-    const savedAppearance = (localStorage.getItem('appearance') as Appearance) || 'system';
-
+    // Selalu gunakan light mode
+    const savedAppearance: Appearance = 'light';
+    
     applyTheme(savedAppearance);
-
-    // Add the event listener for system theme changes...
-    mediaQuery()?.addEventListener('change', handleSystemThemeChange);
+    
+    // Hapus semua event listener untuk system theme changes
+    // karena kita tidak menggunakan system detection
 }
 
 export function useAppearance() {
-    const [appearance, setAppearance] = useState<Appearance>('system');
+    const [appearance, setAppearance] = useState<Appearance>('light');
 
     const updateAppearance = useCallback((mode: Appearance) => {
-        setAppearance(mode);
+        // Hanya terima 'light' mode
+        const lightMode: Appearance = 'light';
+        
+        setAppearance(lightMode);
 
-        // Store in localStorage for client-side persistence...
-        localStorage.setItem('appearance', mode);
+        // Store in localStorage sebagai light
+        localStorage.setItem('appearance', lightMode);
 
-        // Store in cookie for SSR...
-        setCookie('appearance', mode);
+        // Store in cookie sebagai light
+        setCookie('appearance', lightMode);
 
-        applyTheme(mode);
+        applyTheme(lightMode);
     }, []);
 
     useEffect(() => {
-        const savedAppearance = localStorage.getItem('appearance') as Appearance | null;
-        updateAppearance(savedAppearance || 'system');
-
-        return () => mediaQuery()?.removeEventListener('change', handleSystemThemeChange);
+        // Selalu gunakan light mode, abaikan localStorage
+        const lightMode: Appearance = 'light';
+        
+        // Clear any existing dark mode settings
+        localStorage.setItem('appearance', lightMode);
+        setCookie('appearance', lightMode);
+        
+        updateAppearance(lightMode);
+        
+        // Tidak perlu cleanup karena tidak ada event listener
     }, [updateAppearance]);
 
     return { appearance, updateAppearance } as const;
