@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import AuthenticatedLayout from '@/layouts/authenticated-layout';
+import AppLayout from '@/layouts/app-layout';
 
 interface TransactionItem {
     id: number;
@@ -163,7 +163,7 @@ export default function TransactionDetail({ transaction, userRole, canVoid }: Pr
     };
 
     return (
-        <AuthenticatedLayout
+        <AppLayout
             header={
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -455,6 +455,6 @@ export default function TransactionDetail({ transaction, userRole, canVoid }: Pr
                     )}
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </AppLayout>
     );
 }
