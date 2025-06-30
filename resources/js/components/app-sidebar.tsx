@@ -17,7 +17,6 @@ import {
     Package,
     Settings,
     Sparkles,
-    UserCheck,
     Users,
     Zap
 } from 'lucide-react';
@@ -63,25 +62,25 @@ export function AppSidebar() {
                     // badge: 'Hot',
                     description: 'Kelola inventori produk - Tambah, edit, dan kelola stok produk dengan mudah'
                 },
-                {
-                    title: 'Point of Sale',
-                    href: '/pos',
-                    icon: CreditCard,
-                    // badge: 'Active',
-                    description: 'Transaksi penjualan - Proses pembayaran dan transaksi customer dengan cepat'
-                },
+                // {
+                //     title: 'Point of Sale',
+                //     href: '/pos',
+                //     icon: CreditCard,
+                //     // badge: 'Active',
+                //     description: 'Transaksi penjualan - Proses pembayaran dan transaksi customer dengan cepat'
+                // },
                 {
                     title: 'Manajemen Pelanggan',
                     href: '/admin/pelanggan',
                     icon: Users,
                     description: 'Data customer - Kelola informasi pelanggan dan riwayat pembelian mereka'
                 },
-                {
-                    title: 'Manajemen Supplier',
-                    href: '/admin/supplier',
-                    icon: UserCheck,
-                    description: 'Data supplier - Kelola informasi pemasok dan riwayat pembelian dari mereka'
-                },
+                // {
+                //     title: 'Manajemen Supplier',
+                //     href: '/admin/supplier',
+                //     icon: UserCheck,
+                //     description: 'Data supplier - Kelola informasi pemasok dan riwayat pembelian dari mereka'
+                // },
                 {
                     title: 'AI Rekomendasi',
                     href: '/admin/rekomendasi',
