@@ -23,9 +23,6 @@ class CustomerController extends Controller
                            ->orWhere('kode_pelanggan', 'like', "%{$search}%")
                            ->orWhere('nomor_telepon', 'like', "%{$search}%");
             })
-            ->when($request->jenis_pelanggan, function ($query, $jenis) {
-                return $query->where('jenis_pelanggan', $jenis);
-            })
             ->when($request->status !== null, function ($query) use ($request) {
                 return $query->where('status_aktif', $request->status);
             })
@@ -58,13 +55,10 @@ class CustomerController extends Controller
 
         return Inertia::render('Kasir/Customers/Index', [
             'customers' => $customers,
-            'filters' => $request->only(['search', 'jenis_pelanggan', 'status']),
+            'filters' => $request->only(['search', 'status']),
             'statistics' => [
                 'total_pelanggan' => TmDataPelanggan::count(),
                 'pelanggan_aktif' => TmDataPelanggan::aktif()->count(),
-                'pelanggan_reguler' => TmDataPelanggan::jenisPelanggan('reguler')->count(),
-                'pelanggan_member' => TmDataPelanggan::jenisPelanggan('member')->count(),
-                'pelanggan_vip' => TmDataPelanggan::jenisPelanggan('vip')->count(),
             ]
         ]);
     }
@@ -87,9 +81,6 @@ class CustomerController extends Controller
             'nomor_telepon' => 'nullable|string|max:15|unique:tm_data_pelanggan,nomor_telepon',
             'email_pelanggan' => 'nullable|email|max:100|unique:tm_data_pelanggan,email_pelanggan',
             'alamat_pelanggan' => 'nullable|string',
-            'tanggal_lahir' => 'nullable|date|before:today',
-            'jenis_kelamin' => 'nullable|in:L,P',
-            'jenis_pelanggan' => 'required|in:reguler,member', // Kasir hanya bisa buat reguler dan member
             'status_aktif' => 'boolean',
         ], [
             'nama_pelanggan.required' => 'Nama pelanggan harus diisi',
@@ -97,11 +88,6 @@ class CustomerController extends Controller
             'nomor_telepon.unique' => 'Nomor telepon sudah terdaftar',
             'email_pelanggan.email' => 'Format email tidak valid',
             'email_pelanggan.unique' => 'Email sudah terdaftar',
-            'tanggal_lahir.date' => 'Format tanggal lahir tidak valid',
-            'tanggal_lahir.before' => 'Tanggal lahir harus sebelum hari ini',
-            'jenis_kelamin.in' => 'Jenis kelamin harus L atau P',
-            'jenis_pelanggan.required' => 'Jenis pelanggan harus dipilih',
-            'jenis_pelanggan.in' => 'Kasir hanya dapat membuat pelanggan Reguler atau Member',
         ]);
 
         if ($validator->fails()) {
@@ -120,9 +106,6 @@ class CustomerController extends Controller
                 'nomor_telepon' => $request->nomor_telepon,
                 'email_pelanggan' => $request->email_pelanggan,
                 'alamat_pelanggan' => $request->alamat_pelanggan,
-                'tanggal_lahir' => $request->tanggal_lahir,
-                'jenis_kelamin' => $request->jenis_kelamin,
-                'jenis_pelanggan' => $request->jenis_pelanggan,
                 'tanggal_bergabung' => Carbon::now(),
                 'status_aktif' => $request->status_aktif ?? true,
             ]);
@@ -215,9 +198,6 @@ class CustomerController extends Controller
             'nomor_telepon' => $pelanggan->nomor_telepon,
             'email_pelanggan' => $pelanggan->email_pelanggan,
             'alamat_pelanggan' => $pelanggan->alamat_pelanggan,
-            'tanggal_lahir' => $this->formatTanggalLahirForForm($pelanggan->tanggal_lahir),
-            'jenis_kelamin' => $pelanggan->jenis_kelamin,
-            'jenis_pelanggan' => $pelanggan->jenis_pelanggan,
             'status_aktif' => $pelanggan->status_aktif,
         ];
 
@@ -231,12 +211,6 @@ class CustomerController extends Controller
      */
     public function update(Request $request, TmDataPelanggan $pelanggan)
     {
-        // Kasir tidak bisa mengubah jenis pelanggan VIP menjadi yang lain
-        $jenisValidation = 'required|in:reguler,member';
-        if ($pelanggan->jenis_pelanggan === 'vip') {
-            $jenisValidation = 'required|in:reguler,member,vip';
-        }
-
         $validator = Validator::make($request->all(), [
             'nama_pelanggan' => 'required|string|max:100',
             'nomor_telepon' => [
@@ -252,9 +226,6 @@ class CustomerController extends Controller
                 Rule::unique('tm_data_pelanggan', 'email_pelanggan')->ignore($pelanggan->id),
             ],
             'alamat_pelanggan' => 'nullable|string',
-            'tanggal_lahir' => 'nullable|date|before:today',
-            'jenis_kelamin' => 'nullable|in:L,P',
-            'jenis_pelanggan' => $jenisValidation,
             'status_aktif' => 'boolean',
         ], [
             'nama_pelanggan.required' => 'Nama pelanggan harus diisi',
@@ -262,11 +233,6 @@ class CustomerController extends Controller
             'nomor_telepon.unique' => 'Nomor telepon sudah terdaftar',
             'email_pelanggan.email' => 'Format email tidak valid',
             'email_pelanggan.unique' => 'Email sudah terdaftar',
-            'tanggal_lahir.date' => 'Format tanggal lahir tidak valid',
-            'tanggal_lahir.before' => 'Tanggal lahir harus sebelum hari ini',
-            'jenis_kelamin.in' => 'Jenis kelamin harus L atau P',
-            'jenis_pelanggan.required' => 'Jenis pelanggan harus dipilih',
-            'jenis_pelanggan.in' => 'Jenis pelanggan tidak valid',
         ]);
 
         if ($validator->fails()) {
@@ -281,9 +247,6 @@ class CustomerController extends Controller
                 'nomor_telepon' => $request->nomor_telepon,
                 'email_pelanggan' => $request->email_pelanggan,
                 'alamat_pelanggan' => $request->alamat_pelanggan,
-                'tanggal_lahir' => $request->tanggal_lahir,
-                'jenis_kelamin' => $request->jenis_kelamin,
-                'jenis_pelanggan' => $request->jenis_pelanggan,
                 'status_aktif' => $request->status_aktif,
             ]);
 

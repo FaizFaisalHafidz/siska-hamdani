@@ -24,12 +24,6 @@ class CustomerController extends Controller
                            ->orWhere('nomor_telepon', 'like', "%{$search}%")
                            ->orWhere('email_pelanggan', 'like', "%{$search}%");
             })
-            ->when($request->jenis_pelanggan, function ($query, $jenis) {
-                return $query->where('jenis_pelanggan', $jenis);
-            })
-            ->when($request->jenis_kelamin, function ($query, $jenis) {
-                return $query->where('jenis_kelamin', $jenis);
-            })
             ->when($request->status !== null, function ($query) use ($request) {
                 return $query->where('status_aktif', $request->status);
             })
@@ -62,13 +56,10 @@ class CustomerController extends Controller
 
         return Inertia::render('Admin/Customers/Index', [
             'customers' => $customers,
-            'filters' => $request->only(['search', 'jenis_pelanggan', 'jenis_kelamin', 'status']),
+            'filters' => $request->only(['search', 'status']),
             'statistics' => [
                 'total_pelanggan' => TmDataPelanggan::count(),
                 'pelanggan_aktif' => TmDataPelanggan::aktif()->count(),
-                'pelanggan_reguler' => TmDataPelanggan::jenisPelanggan('reguler')->count(),
-                'pelanggan_member' => TmDataPelanggan::jenisPelanggan('member')->count(),
-                'pelanggan_vip' => TmDataPelanggan::jenisPelanggan('vip')->count(),
             ]
         ]);
     }
@@ -91,9 +82,6 @@ class CustomerController extends Controller
             'nomor_telepon' => 'nullable|string|max:15|unique:tm_data_pelanggan,nomor_telepon',
             'email_pelanggan' => 'nullable|email|max:100|unique:tm_data_pelanggan,email_pelanggan',
             'alamat_pelanggan' => 'nullable|string',
-            'tanggal_lahir' => 'nullable|date|before:today',
-            'jenis_kelamin' => 'nullable|in:L,P',
-            'jenis_pelanggan' => 'required|in:reguler,member,vip',
             'status_aktif' => 'boolean',
         ], [
             'nama_pelanggan.required' => 'Nama pelanggan harus diisi',
@@ -101,11 +89,6 @@ class CustomerController extends Controller
             'nomor_telepon.unique' => 'Nomor telepon sudah terdaftar',
             'email_pelanggan.email' => 'Format email tidak valid',
             'email_pelanggan.unique' => 'Email sudah terdaftar',
-            'tanggal_lahir.date' => 'Format tanggal lahir tidak valid',
-            'tanggal_lahir.before' => 'Tanggal lahir harus sebelum hari ini',
-            'jenis_kelamin.in' => 'Jenis kelamin harus L atau P',
-            'jenis_pelanggan.required' => 'Jenis pelanggan harus dipilih',
-            'jenis_pelanggan.in' => 'Jenis pelanggan tidak valid',
         ]);
 
         if ($validator->fails()) {
@@ -124,9 +107,6 @@ class CustomerController extends Controller
                 'nomor_telepon' => $request->nomor_telepon,
                 'email_pelanggan' => $request->email_pelanggan,
                 'alamat_pelanggan' => $request->alamat_pelanggan,
-                'tanggal_lahir' => $request->tanggal_lahir,
-                'jenis_kelamin' => $request->jenis_kelamin,
-                'jenis_pelanggan' => $request->jenis_pelanggan,
                 'tanggal_bergabung' => Carbon::now(),
                 'status_aktif' => $request->status_aktif ?? true,
             ]);
@@ -241,9 +221,6 @@ class CustomerController extends Controller
             'nomor_telepon' => $pelanggan->nomor_telepon,
             'email_pelanggan' => $pelanggan->email_pelanggan,
             'alamat_pelanggan' => $pelanggan->alamat_pelanggan,
-            'tanggal_lahir' => $this->formatTanggalLahirForForm($pelanggan->tanggal_lahir),
-            'jenis_kelamin' => $pelanggan->jenis_kelamin,
-            'jenis_pelanggan' => $pelanggan->jenis_pelanggan,
             'status_aktif' => $pelanggan->status_aktif,
         ];
 
@@ -272,9 +249,6 @@ class CustomerController extends Controller
                 Rule::unique('tm_data_pelanggan', 'email_pelanggan')->ignore($pelanggan->id),
             ],
             'alamat_pelanggan' => 'nullable|string',
-            'tanggal_lahir' => 'nullable|date|before:today',
-            'jenis_kelamin' => 'nullable|in:L,P',
-            'jenis_pelanggan' => 'required|in:reguler,member,vip',
             'status_aktif' => 'boolean',
         ], [
             'nama_pelanggan.required' => 'Nama pelanggan harus diisi',
@@ -282,11 +256,6 @@ class CustomerController extends Controller
             'nomor_telepon.unique' => 'Nomor telepon sudah terdaftar',
             'email_pelanggan.email' => 'Format email tidak valid',
             'email_pelanggan.unique' => 'Email sudah terdaftar',
-            'tanggal_lahir.date' => 'Format tanggal lahir tidak valid',
-            'tanggal_lahir.before' => 'Tanggal lahir harus sebelum hari ini',
-            'jenis_kelamin.in' => 'Jenis kelamin harus L atau P',
-            'jenis_pelanggan.required' => 'Jenis pelanggan harus dipilih',
-            'jenis_pelanggan.in' => 'Jenis pelanggan tidak valid',
         ]);
 
         if ($validator->fails()) {
@@ -301,9 +270,6 @@ class CustomerController extends Controller
                 'nomor_telepon' => $request->nomor_telepon,
                 'email_pelanggan' => $request->email_pelanggan,
                 'alamat_pelanggan' => $request->alamat_pelanggan,
-                'tanggal_lahir' => $request->tanggal_lahir,
-                'jenis_kelamin' => $request->jenis_kelamin,
-                'jenis_pelanggan' => $request->jenis_pelanggan,
                 'status_aktif' => $request->status_aktif,
             ]);
 
@@ -387,7 +353,7 @@ class CustomerController extends Controller
                            ->orWhere('kode_pelanggan', 'like', "%{$search}%")
                            ->orWhere('nomor_telepon', 'like', "%{$search}%");
             })
-            ->select('id', 'kode_pelanggan', 'nama_pelanggan', 'nomor_telepon', 'jenis_pelanggan')
+            ->select('id', 'kode_pelanggan', 'nama_pelanggan', 'nomor_telepon')
             ->limit(20)
             ->get()
             ->map(function ($customer) {
@@ -396,7 +362,6 @@ class CustomerController extends Controller
                     'label' => $customer->kode_pelanggan . ' - ' . $customer->nama_pelanggan,
                     'nama' => $customer->nama_pelanggan,
                     'telepon' => $customer->nomor_telepon,
-                    'jenis' => $customer->jenis_pelanggan,
                 ];
             });
 
@@ -469,9 +434,6 @@ class CustomerController extends Controller
             'pelanggan_aktif' => TmDataPelanggan::aktif()->count(),
             'pelanggan_baru_hari_ini' => TmDataPelanggan::whereDate('created_at', $today)->count(),
             'pelanggan_baru_bulan_ini' => TmDataPelanggan::where('created_at', '>=', $thisMonth)->count(),
-            'pelanggan_reguler' => TmDataPelanggan::jenisPelanggan('reguler')->count(),
-            'pelanggan_member' => TmDataPelanggan::jenisPelanggan('member')->count(),
-            'pelanggan_vip' => TmDataPelanggan::jenisPelanggan('vip')->count(),
         ]);
     }
 

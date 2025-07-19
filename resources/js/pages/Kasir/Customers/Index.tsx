@@ -70,9 +70,6 @@ interface Customer {
     nomor_telepon: string;
     email_pelanggan: string;
     alamat_pelanggan: string;
-    tanggal_lahir: string | null;
-    jenis_kelamin: string;
-    jenis_pelanggan: string;
     tanggal_bergabung: string;
     status_aktif: boolean;
     created_at: string;
@@ -84,9 +81,6 @@ interface Customer {
 interface Statistics {
     total_pelanggan: number;
     pelanggan_aktif: number;
-    pelanggan_reguler: number;
-    pelanggan_member: number;
-    pelanggan_vip: number;
 }
 
 interface Props {
@@ -99,8 +93,6 @@ interface Props {
     };
     filters: {
         search?: string;
-        jenis_pelanggan?: string;
-        jenis_kelamin?: string;
         status?: boolean;
     };
     statistics: Statistics;
@@ -118,7 +110,6 @@ export default function Index({ customers, filters, statistics }: Props) {
     
     // Filter states
     const [searchValue, setSearchValue] = useState(filters.search || '');
-    const [jenisFilter, setJenisFilter] = useState(filters.jenis_pelanggan || '');
     const [statusFilter, setStatusFilter] = useState(filters.status?.toString() || '');
 
     const getCustomerTypeIcon = (jenis: string) => {

@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useForm } from '@inertiajs/react';
-import { Calendar, Crown, Mail, Phone, Shield, User } from 'lucide-react';
+import { Mail, Phone, User } from 'lucide-react';
 import React, { useEffect } from 'react';
 import { toast } from 'sonner';
 
@@ -23,9 +23,6 @@ interface Customer {
     nomor_telepon: string;
     email_pelanggan: string;
     alamat_pelanggan: string;
-    tanggal_lahir: string | null;
-    jenis_kelamin: string;
-    jenis_pelanggan: string;
     status_aktif: boolean;
 }
 
@@ -41,9 +38,6 @@ interface FormData {
     nomor_telepon: string;
     email_pelanggan: string;
     alamat_pelanggan: string;
-    tanggal_lahir: string;
-    jenis_kelamin: string;
-    jenis_pelanggan: string;
     status_aktif: boolean;
 }
 
@@ -53,9 +47,6 @@ export default function CustomerForm({ open, onClose, customer, isKasir = false 
         nomor_telepon: '',
         email_pelanggan: '',
         alamat_pelanggan: '',
-        tanggal_lahir: '',
-        jenis_kelamin: '',
-        jenis_pelanggan: 'reguler',
         status_aktif: true,
     });
 
@@ -70,9 +61,6 @@ export default function CustomerForm({ open, onClose, customer, isKasir = false 
                     nomor_telepon: customer.nomor_telepon || '',
                     email_pelanggan: customer.email_pelanggan || '',
                     alamat_pelanggan: customer.alamat_pelanggan || '',
-                    tanggal_lahir: customer.tanggal_lahir ? new Date(customer.tanggal_lahir).toISOString().split('T')[0] : '',
-                    jenis_kelamin: customer.jenis_kelamin || '',
-                    jenis_pelanggan: customer.jenis_pelanggan,
                     status_aktif: customer.status_aktif,
                 });
             } else {
@@ -191,117 +179,6 @@ export default function CustomerForm({ open, onClose, customer, isKasir = false 
                                 <p className="text-sm text-red-500">{errors.email_pelanggan}</p>
                             )}
                         </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        {/* Tanggal Lahir */}
-                        <div className="space-y-2">
-                            <Label htmlFor="tanggal_lahir" className="flex items-center gap-2">
-                                <Calendar className="w-4 h-4" />
-                                Tanggal Lahir
-                            </Label>
-                            <Input
-                                id="tanggal_lahir"
-                                type="date"
-                                value={data.tanggal_lahir}
-                                onChange={(e) => setData('tanggal_lahir', e.target.value)}
-                                className={errors.tanggal_lahir ? 'border-red-500' : ''}
-                            />
-                            {errors.tanggal_lahir && (
-                                <p className="text-sm text-red-500">{errors.tanggal_lahir}</p>
-                            )}
-                        </div>
-
-                        {/* Jenis Kelamin */}
-                        <div className="space-y-2">
-                            <Label htmlFor="jenis_kelamin">Jenis Kelamin</Label>
-                            <select
-                                id="jenis_kelamin"
-                                value={data.jenis_kelamin}
-                                onChange={(e) => setData('jenis_kelamin', e.target.value)}
-                                className={`w-full px-3 py-2 border rounded-md bg-background text-foreground ${
-                                    errors.jenis_kelamin ? 'border-red-500' : 'border-input'
-                                } focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent`}
-                            >
-                                <option value="">Pilih jenis kelamin</option>
-                                <option value="L">Laki-laki</option>
-                                <option value="P">Perempuan</option>
-                            </select>
-                            {errors.jenis_kelamin && (
-                                <p className="text-sm text-red-500">{errors.jenis_kelamin}</p>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Jenis Pelanggan - Simplified for Kasir */}
-                    <div className="space-y-2">
-                        <Label htmlFor="jenis_pelanggan">Jenis Pelanggan *</Label>
-                        {isKasir ? (
-                            // Kasir hanya bisa memilih Reguler dan Member
-                            <div className="grid grid-cols-2 gap-4">
-                                {[
-                                    { value: 'reguler', label: 'Reguler', icon: <User className="w-4 h-4" />, color: 'border-gray-300' },
-                                    { value: 'member', label: 'Member', icon: <Shield className="w-4 h-4" />, color: 'border-blue-300' },
-                                ].map((option) => (
-                                    <label
-                                        key={option.value}
-                                        className={`flex items-center space-x-2 p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                                            data.jenis_pelanggan === option.value
-                                                ? `${option.color} bg-opacity-10`
-                                                : 'border-gray-200 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <input
-                                            type="radio"
-                                            name="jenis_pelanggan"
-                                            value={option.value}
-                                            checked={data.jenis_pelanggan === option.value}
-                                            onChange={(e) => setData('jenis_pelanggan', e.target.value)}
-                                            className="sr-only"
-                                        />
-                                        {option.icon}
-                                        <span className="font-medium">{option.label}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        ) : (
-                            // Admin bisa memilih semua tipe
-                            <div className="grid grid-cols-3 gap-4">
-                                {[
-                                    { value: 'reguler', label: 'Reguler', icon: <User className="w-4 h-4" />, color: 'border-gray-300' },
-                                    { value: 'member', label: 'Member', icon: <Shield className="w-4 h-4" />, color: 'border-blue-300' },
-                                    { value: 'vip', label: 'VIP', icon: <Crown className="w-4 h-4" />, color: 'border-yellow-300' },
-                                ].map((option) => (
-                                    <label
-                                        key={option.value}
-                                        className={`flex items-center space-x-2 p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                                            data.jenis_pelanggan === option.value
-                                                ? `${option.color} bg-opacity-10`
-                                                : 'border-gray-200 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <input
-                                            type="radio"
-                                            name="jenis_pelanggan"
-                                            value={option.value}
-                                            checked={data.jenis_pelanggan === option.value}
-                                            onChange={(e) => setData('jenis_pelanggan', e.target.value)}
-                                            className="sr-only"
-                                        />
-                                        {option.icon}
-                                        <span className="font-medium">{option.label}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        )}
-                        {isKasir && (
-                            <p className="text-xs text-muted-foreground">
-                                Catatan: Untuk upgrade ke VIP, hubungi Admin
-                            </p>
-                        )}
-                        {errors.jenis_pelanggan && (
-                            <p className="text-sm text-red-500">{errors.jenis_pelanggan}</p>
-                        )}
                     </div>
 
                     {/* Alamat */}

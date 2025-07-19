@@ -12,6 +12,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 use Carbon\Carbon;
@@ -50,7 +51,7 @@ class PenjualanController extends Controller
                     'harga_jual' => $product->harga_jual,
                     'harga_jual_format' => 'Rp ' . number_format($product->harga_jual, 0, ',', '.'),
                     'stok_tersedia' => $product->stok_tersedia,
-                    'gambar_produk' => $product->gambar_produk,
+                    'gambar_produk' => $product->gambar_produk ? Storage::url($product->gambar_produk) : null,
                     'deskripsi_produk' => $product->deskripsi_produk,
                     'satuan' => $product->satuan,
                     'merk_produk' => $product->merk_produk,
