@@ -37,7 +37,6 @@ import {
 import {
     ArrowUpDown,
     Calendar,
-    Crown,
     Edit,
     Eye,
     Filter,
@@ -46,8 +45,6 @@ import {
     Phone,
     Power,
     Search,
-    Shield,
-    User,
     UserCheck,
     UserPlus,
     Users
@@ -112,28 +109,6 @@ export default function Index({ customers, filters, statistics }: Props) {
     const [searchValue, setSearchValue] = useState(filters.search || '');
     const [statusFilter, setStatusFilter] = useState(filters.status?.toString() || '');
 
-    const getCustomerTypeIcon = (jenis: string) => {
-        switch (jenis) {
-            case 'vip':
-                return <Crown className="w-4 h-4 text-yellow-500" />;
-            case 'member':
-                return <Shield className="w-4 h-4 text-blue-500" />;
-            default:
-                return <User className="w-4 h-4 text-gray-500" />;
-        }
-    };
-
-    const getCustomerTypeBadge = (jenis: string) => {
-        switch (jenis) {
-            case 'vip':
-                return <Badge className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white">VIP</Badge>;
-            case 'member':
-                return <Badge className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">Member</Badge>;
-            default:
-                return <Badge variant="outline">Reguler</Badge>;
-        }
-    };
-
     const getInitials = (name: string) => {
         return name
             .split(' ')
@@ -191,27 +166,6 @@ export default function Index({ customers, filters, statistics }: Props) {
                 return (
                     <div className="space-y-1">
                         <div className="font-medium">{customer.nama_pelanggan}</div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            {customer.jenis_kelamin && (
-                                <span className="flex items-center gap-1">
-                                    <User className="w-3 h-3" />
-                                    {customer.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan'}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                );
-            },
-        },
-        {
-            accessorKey: 'jenis_pelanggan',
-            header: 'Tipe',
-            cell: ({ row }) => {
-                const jenis = row.getValue('jenis_pelanggan') as string;
-                return (
-                    <div className="flex items-center gap-2">
-                        {getCustomerTypeIcon(jenis)}
-                        {getCustomerTypeBadge(jenis)}
                     </div>
                 );
             },
@@ -367,7 +321,6 @@ export default function Index({ customers, filters, statistics }: Props) {
     const handleSearch = () => {
         router.get(route('kasir.pelanggan.index'), {
             search: searchValue,
-            jenis_pelanggan: jenisFilter,
             status: statusFilter,
         }, {
             preserveState: true,
@@ -377,7 +330,6 @@ export default function Index({ customers, filters, statistics }: Props) {
 
     const clearFilters = () => {
         setSearchValue('');
-        setJenisFilter('');
         setStatusFilter('');
         router.get(route('kasir.pelanggan.index'), {}, {
             preserveState: true,
@@ -394,7 +346,7 @@ export default function Index({ customers, filters, statistics }: Props) {
             
             <div className="container mx-auto py-6 space-y-6 p-6">
                 {/* Statistics Cards - Simplified for Kasir */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Total Pelanggan</CardTitle>
@@ -414,28 +366,6 @@ export default function Index({ customers, filters, statistics }: Props) {
                         <CardContent>
                             <div className="text-2xl font-bold">{statistics.pelanggan_aktif}</div>
                             <p className="text-xs opacity-80">Siap bertransaksi</p>
-                        </CardContent>
-                    </Card>
-                    
-                    <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Member</CardTitle>
-                            <Shield className="h-4 w-4" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{statistics.pelanggan_member}</div>
-                            <p className="text-xs opacity-80">Pelanggan member</p>
-                        </CardContent>
-                    </Card>
-                    
-                    <Card className="bg-gradient-to-r from-yellow-500 to-orange-600 text-white">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">VIP</CardTitle>
-                            <Crown className="h-4 w-4" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{statistics.pelanggan_vip}</div>
-                            <p className="text-xs opacity-80">Pelanggan VIP</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -473,17 +403,6 @@ export default function Index({ customers, filters, statistics }: Props) {
                                     className="bg-white"
                                 />
                             </div>
-                            
-                            <select
-                                value={jenisFilter}
-                                onChange={(e) => setJenisFilter(e.target.value)}
-                                className="px-3 py-2 border rounded-md bg-white text-foreground border-input focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent min-w-[130px]"
-                            >
-                                <option value="">Semua Tipe</option>
-                                <option value="reguler">Reguler</option>
-                                <option value="member">Member</option>
-                                <option value="vip">VIP</option>
-                            </select>
 
                             <select
                                 value={statusFilter}
