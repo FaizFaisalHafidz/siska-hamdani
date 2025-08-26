@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { useForm } from '@inertiajs/react';
+import { router, useForm } from '@inertiajs/react';
 import { ImagePlus, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -21,7 +21,11 @@ interface Product {
     kode_produk: string;
     nama_produk: string;
     deskripsi_produk: string | null;
-    kategori_id: number;
+    kategori_id?: number; // From direct edit
+    kategori?: { // From index list
+        id: number;
+        nama: string;
+    };
     harga_jual: number;
     harga_beli: number | null;
     stok_tersedia: number;
@@ -56,6 +60,8 @@ interface FormData {
     merk_produk: string;
     gambar_produk: File | null;
     status_aktif: boolean;
+    _method?: string; // For Laravel method spoofing
+    [key: string]: any; // Add index signature
 }
 
 export default function ProductForm({ open, onClose, product, kategoris }: Props) {
@@ -79,12 +85,17 @@ export default function ProductForm({ open, onClose, product, kategoris }: Props
 
     useEffect(() => {
         if (open) {
+            clearErrors(); // Clear errors first
+            
             if (product) {
                 // Edit mode - Add null checks and provide fallbacks
+                // Handle both kategori_id (direct edit) and kategori.id (from index list)
+                const kategoriId = product.kategori_id || product.kategori?.id;
+                
                 setData({
                     nama_produk: product.nama_produk || '',
                     deskripsi_produk: product.deskripsi_produk || '',
-                    kategori_id: product.kategori_id ? product.kategori_id.toString() : '',
+                    kategori_id: kategoriId ? kategoriId.toString() : '',
                     harga_jual: product.harga_jual ? product.harga_jual.toString() : '',
                     harga_beli: product.harga_beli ? product.harga_beli.toString() : '',
                     stok_tersedia: product.stok_tersedia ? product.stok_tersedia.toString() : '0',
@@ -95,12 +106,16 @@ export default function ProductForm({ open, onClose, product, kategoris }: Props
                     status_aktif: product.status_aktif ?? true,
                 });
                 setPreview(product.gambar_produk || null);
+                
+                // Clear errors again after data is set
+                setTimeout(() => {
+                    clearErrors();
+                }, 100);
             } else {
                 // Create mode
                 reset();
                 setPreview(null);
             }
-            clearErrors();
         }
     }, [open, product]);
 
@@ -133,22 +148,48 @@ export default function ProductForm({ open, onClose, product, kategoris }: Props
         e.preventDefault();
 
         if (isEdit && product) {
-            put(route('admin.produk.update', product.id), {
+            // Add _method for Laravel method spoofing
+            const formData = new FormData();
+            Object.keys(data).forEach(key => {
+                if (key === 'gambar_produk' && data[key]) {
+                    formData.append(key, data[key] as File);
+                } else if (data[key] !== null && data[key] !== undefined) {
+                    // Convert boolean to string properly for Laravel
+                    if (key === 'status_aktif') {
+                        formData.append(key, data[key] ? '1' : '0');
+                    } else {
+                        formData.append(key, data[key].toString());
+                    }
+                }
+            });
+            formData.append('_method', 'PUT');
+            
+            // Use router.post for manual FormData
+            router.post(route('admin.produk.update', product.id), formData, {
+                onBefore: () => {
+                    console.log('Submitting edit form with FormData');
+                },
                 onSuccess: () => {
                     toast.success('Produk berhasil diperbarui');
                     onClose();
                 },
-                onError: () => {
+                onError: (errors: Record<string, string>) => {
+                    console.log('Edit form errors:', errors);
                     toast.error('Terjadi kesalahan saat memperbarui produk');
                 }
             });
         } else {
             post(route('admin.produk.store'), {
+                forceFormData: true,
+                onBefore: () => {
+                    console.log('Submitting create form with data:', data);
+                },
                 onSuccess: () => {
                     toast.success('Produk berhasil ditambahkan');
                     onClose();
                 },
-                onError: () => {
+                onError: (errors: Record<string, string>) => {
+                    console.log('Create form errors:', errors);
                     toast.error('Terjadi kesalahan saat menambahkan produk');
                 }
             });
@@ -162,6 +203,29 @@ export default function ProductForm({ open, onClose, product, kategoris }: Props
             setPreview(null);
             onClose();
         }
+    };
+
+    // Don't show validation errors when form is being populated with data
+    const shouldShowError = (field: keyof FormData) => {
+        // In edit mode, only show errors after user interaction
+        if (isEdit) {
+            // Don't show errors for fields that have values (populated from existing data)
+            const value = data[field];
+            const fieldName = field as string;
+            
+            if (fieldName === 'kategori_id') {
+                // For kategori_id, don't show error if it has a valid numeric value
+                return !value || value === '' ? !!errors[field] : false;
+            }
+            // For other required fields, don't show error if they have content
+            if (['nama_produk', 'harga_jual', 'stok_minimum', 'satuan'].includes(fieldName)) {
+                return !value || value === '' ? !!errors[field] : false;
+            }
+            // For optional fields, never show error in edit mode if they have any value
+            return false;
+        }
+        // In create mode, show all errors normally
+        return !!errors[field];
     };
 
     return (
@@ -212,14 +276,14 @@ export default function ProductForm({ open, onClose, product, kategoris }: Props
                                     type="file"
                                     accept="image/*"
                                     onChange={handleImageChange}
-                                    className={errors.gambar_produk ? 'border-red-500' : ''}
+                                    className={shouldShowError('gambar_produk') ? 'border-red-500' : ''}
                                 />
                                 <p className="text-xs text-muted-foreground mt-1">
                                     Format: JPG, PNG, GIF. Maksimal 2MB
                                 </p>
                             </div>
                         </div>
-                        {errors.gambar_produk && (
+                        {shouldShowError('gambar_produk') && (
                             <p className="text-sm text-red-500">{errors.gambar_produk}</p>
                         )}
                     </div>
@@ -233,9 +297,9 @@ export default function ProductForm({ open, onClose, product, kategoris }: Props
                                 value={data.nama_produk}
                                 onChange={(e) => setData('nama_produk', e.target.value)}
                                 placeholder="Masukkan nama produk"
-                                className={errors.nama_produk ? 'border-red-500' : ''}
+                                className={shouldShowError('nama_produk') ? 'border-red-500' : ''}
                             />
-                            {errors.nama_produk && (
+                            {shouldShowError('nama_produk') && (
                                 <p className="text-sm text-red-500">{errors.nama_produk}</p>
                             )}
                         </div>
@@ -248,7 +312,7 @@ export default function ProductForm({ open, onClose, product, kategoris }: Props
                                 value={data.kategori_id}
                                 onChange={(e) => setData('kategori_id', e.target.value)}
                                 className={`w-full px-3 py-2 border rounded-md bg-background text-foreground ${
-                                    errors.kategori_id ? 'border-red-500' : 'border-input'
+                                    shouldShowError('kategori_id') ? 'border-red-500' : 'border-input'
                                 } focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent`}
                             >
                                 <option value="">Pilih kategori</option>
@@ -258,7 +322,7 @@ export default function ProductForm({ open, onClose, product, kategoris }: Props
                                     </option>
                                 ))}
                             </select>
-                            {errors.kategori_id && (
+                            {shouldShowError('kategori_id') && (
                                 <p className="text-sm text-red-500">{errors.kategori_id}</p>
                             )}
                         </div>
@@ -271,9 +335,9 @@ export default function ProductForm({ open, onClose, product, kategoris }: Props
                                 value={data.merk_produk}
                                 onChange={(e) => setData('merk_produk', e.target.value)}
                                 placeholder="Masukkan merk produk"
-                                className={errors.merk_produk ? 'border-red-500' : ''}
+                                className={shouldShowError('merk_produk') ? 'border-red-500' : ''}
                             />
-                            {errors.merk_produk && (
+                            {shouldShowError('merk_produk') && (
                                 <p className="text-sm text-red-500">{errors.merk_produk}</p>
                             )}
                         </div>
@@ -287,9 +351,9 @@ export default function ProductForm({ open, onClose, product, kategoris }: Props
                                 value={data.harga_jual}
                                 onChange={(e) => setData('harga_jual', e.target.value)}
                                 placeholder="0"
-                                className={errors.harga_jual ? 'border-red-500' : ''}
+                                className={shouldShowError('harga_jual') ? 'border-red-500' : ''}
                             />
-                            {errors.harga_jual && (
+                            {shouldShowError('harga_jual') && (
                                 <p className="text-sm text-red-500">{errors.harga_jual}</p>
                             )}
                         </div>
@@ -303,9 +367,9 @@ export default function ProductForm({ open, onClose, product, kategoris }: Props
                                 value={data.harga_beli}
                                 onChange={(e) => setData('harga_beli', e.target.value)}
                                 placeholder="0"
-                                className={errors.harga_beli ? 'border-red-500' : ''}
+                                className={shouldShowError('harga_beli') ? 'border-red-500' : ''}
                             />
-                            {errors.harga_beli && (
+                            {shouldShowError('harga_beli') && (
                                 <p className="text-sm text-red-500">{errors.harga_beli}</p>
                             )}
                         </div>
@@ -320,9 +384,9 @@ export default function ProductForm({ open, onClose, product, kategoris }: Props
                                     value={data.stok_tersedia}
                                     onChange={(e) => setData('stok_tersedia', e.target.value)}
                                     placeholder="0"
-                                    className={errors.stok_tersedia ? 'border-red-500' : ''}
+                                    className={shouldShowError('stok_tersedia') ? 'border-red-500' : ''}
                                 />
-                                {errors.stok_tersedia && (
+                                {shouldShowError('stok_tersedia') && (
                                     <p className="text-sm text-red-500">{errors.stok_tersedia}</p>
                                 )}
                             </div>
@@ -337,9 +401,9 @@ export default function ProductForm({ open, onClose, product, kategoris }: Props
                                 value={data.stok_minimum}
                                 onChange={(e) => setData('stok_minimum', e.target.value)}
                                 placeholder="1"
-                                className={errors.stok_minimum ? 'border-red-500' : ''}
+                                className={shouldShowError('stok_minimum') ? 'border-red-500' : ''}
                             />
-                            {errors.stok_minimum && (
+                            {shouldShowError('stok_minimum') && (
                                 <p className="text-sm text-red-500">{errors.stok_minimum}</p>
                             )}
                         </div>
@@ -352,9 +416,9 @@ export default function ProductForm({ open, onClose, product, kategoris }: Props
                                 value={data.satuan}
                                 onChange={(e) => setData('satuan', e.target.value)}
                                 placeholder="pcs, kg, liter, dll"
-                                className={errors.satuan ? 'border-red-500' : ''}
+                                className={shouldShowError('satuan') ? 'border-red-500' : ''}
                             />
-                            {errors.satuan && (
+                            {shouldShowError('satuan') && (
                                 <p className="text-sm text-red-500">{errors.satuan}</p>
                             )}
                         </div>
@@ -368,10 +432,10 @@ export default function ProductForm({ open, onClose, product, kategoris }: Props
                             value={data.deskripsi_produk}
                             onChange={(e) => setData('deskripsi_produk', e.target.value)}
                             placeholder="Masukkan deskripsi produk"
-                            className={errors.deskripsi_produk ? 'border-red-500' : ''}
+                            className={shouldShowError('deskripsi_produk') ? 'border-red-500' : ''}
                             rows={3}
                         />
-                        {errors.deskripsi_produk && (
+                        {shouldShowError('deskripsi_produk') && (
                             <p className="text-sm text-red-500">{errors.deskripsi_produk}</p>
                         )}
                     </div>

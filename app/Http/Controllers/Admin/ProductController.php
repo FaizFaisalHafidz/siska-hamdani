@@ -7,7 +7,9 @@ use App\Models\TmDataKategori;
 use App\Models\TmDataProduk;
 use App\Models\TtDataStok;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -177,7 +179,7 @@ class ProductController extends Controller
                     'referensi_transaksi' => 'INITIAL_STOCK',
                     'keterangan' => 'Stok awal produk baru',
                     'tanggal_transaksi' => Carbon::now(),
-                    'user_id' => auth()->id(),
+                    'user_id' => Auth::id(),
                 ]);
             }
 
@@ -314,18 +316,32 @@ class ProductController extends Controller
      */
     public function update(Request $request, TmDataProduk $produk)
     {
-        $validator = Validator::make($request->all(), [
-            'nama_produk' => 'required|string|max:200',
+        // Debug: Log all incoming request data
+        Log::info('Product Update Request Received', [
+            'product_id' => $produk->id,
+            'method' => $request->method(),
+            'all_data' => $request->all(),
+            'input_data' => $request->input(),
+            'files' => $request->allFiles(),
+            'content_type' => $request->header('Content-Type'),
+            'has_json' => $request->isJson(),
+        ]);
+
+        // For update, make validation more flexible - only validate fields that are being updated
+        $rules = [
+            'nama_produk' => 'sometimes|required|string|max:200',
             'deskripsi_produk' => 'nullable|string',
-            'kategori_id' => 'required|exists:tm_data_kategori,id',
-            'harga_jual' => 'required|numeric|min:0',
+            'kategori_id' => 'sometimes|required|exists:tm_data_kategori,id',
+            'harga_jual' => 'sometimes|required|numeric|min:0',
             'harga_beli' => 'nullable|numeric|min:0',
-            'stok_minimum' => 'required|integer|min:1',
-            'satuan' => 'required|string|max:20',
+            'stok_minimum' => 'sometimes|required|integer|min:1',
+            'satuan' => 'sometimes|required|string|max:20',
             'merk_produk' => 'nullable|string|max:100',
             'gambar_produk' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'status_aktif' => 'boolean',
-        ], [
+            'status_aktif' => 'nullable|boolean',
+        ];
+
+        $messages = [
             'nama_produk.required' => 'Nama produk harus diisi',
             'kategori_id.required' => 'Kategori harus dipilih',
             'kategori_id.exists' => 'Kategori tidak valid',
@@ -337,15 +353,38 @@ class ProductController extends Controller
             'satuan.required' => 'Satuan harus diisi',
             'gambar_produk.image' => 'File harus berupa gambar',
             'gambar_produk.max' => 'Ukuran gambar maksimal 2MB',
-        ]);
+        ];
+
+        $validator = Validator::make($request->all(), $rules, $messages);
 
         if ($validator->fails()) {
+            Log::info('Product Update Validation Failed', [
+                'product_id' => $produk->id,
+                'errors' => $validator->errors()->toArray(),
+                'input_data' => $request->all()
+            ]);
+            
             return back()
                 ->withErrors($validator)
                 ->withInput();
         }
 
+        Log::info('Product Update Started', [
+            'product_id' => $produk->id,
+            'input_data' => $request->all()
+        ]);
+
         try {
+            Log::info('Building update data array', [
+                'product_id' => $produk->id,
+                'request_data' => [
+                    'nama_produk' => $request->nama_produk,
+                    'kategori_id' => $request->kategori_id,
+                    'harga_jual' => $request->harga_jual,
+                    'status_aktif' => $request->status_aktif
+                ]
+            ]);
+
             $updateData = [
                 'nama_produk' => $request->nama_produk,
                 'deskripsi_produk' => $request->deskripsi_produk,
@@ -358,23 +397,46 @@ class ProductController extends Controller
                 'status_aktif' => $request->status_aktif ?? true,
             ];
 
+            Log::info('Update data prepared', [
+                'product_id' => $produk->id,
+                'update_data' => $updateData
+            ]);
+
             // Handle file upload
             if ($request->hasFile('gambar_produk')) {
+                Log::info('Processing image upload', ['product_id' => $produk->id]);
+                
                 // Delete old image
                 if ($produk->gambar_produk && Storage::disk('public')->exists($produk->gambar_produk)) {
                     Storage::disk('public')->delete($produk->gambar_produk);
+                    Log::info('Old image deleted', ['old_image' => $produk->gambar_produk]);
                 }
                 
                 $updateData['gambar_produk'] = $request->file('gambar_produk')->store('products', 'public');
+                Log::info('New image uploaded', ['new_image' => $updateData['gambar_produk']]);
             }
 
+            Log::info('Attempting to update product', [
+                'product_id' => $produk->id,
+                'final_update_data' => $updateData
+            ]);
+
             $produk->update($updateData);
+
+            Log::info('Product updated successfully', ['product_id' => $produk->id]);
 
             return redirect()
                 ->route('admin.produk.index')
                 ->with('success', 'Produk berhasil diperbarui');
 
         } catch (\Exception $e) {
+            Log::error('Product Update Failed', [
+                'product_id' => $produk->id,
+                'error_message' => $e->getMessage(),
+                'error_trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+
             return back()
                 ->withErrors(['error' => 'Terjadi kesalahan: ' . $e->getMessage()])
                 ->withInput();
@@ -488,7 +550,7 @@ class ProductController extends Controller
                 'referensi_transaksi' => 'MANUAL_ADJUSTMENT',
                 'keterangan' => $request->keterangan ?: 'Penyesuaian manual',
                 'tanggal_transaksi' => Carbon::now(),
-                'user_id' => auth()->id(),
+                'user_id' => Auth::id(),
             ]);
 
             DB::commit();
