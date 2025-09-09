@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 
@@ -27,20 +28,36 @@ class CustomerAuthController extends Controller
      */
     public function register(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'phone' => 'required|string|max:20',
-            'address' => 'required|string|max:500',
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-        ]);
+        Log::info('Customer registration attempt', $request->all());
+        
+        try {
+            $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|string|email|max:255|unique:users',
+                'phone' => 'required|string|max:20',
+                'address' => 'required|string|max:500',
+                'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            ]);
+
+            Log::info('Validation passed, creating user');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Validation failed', [
+                'errors' => $e->errors(),
+                'message' => $e->getMessage()
+            ]);
+            return back()->withErrors($e->errors())->withInput();
+        }
 
         try {
             DB::beginTransaction();
+            Log::info('Starting database transaction');
 
             // Create user account
+            $userCode = $this->generateUserCode();
+            Log::info('Generated user code', ['code' => $userCode]);
+            
             $user = User::create([
-                'kode_user' => $this->generateUserCode(),
+                'kode_user' => $userCode,
                 'name' => $request->name,
                 'nama_lengkap' => $request->name,
                 'email' => $request->email,
@@ -50,35 +67,49 @@ class CustomerAuthController extends Controller
                 'tanggal_bergabung' => now(),
                 'status_aktif' => true,
             ]);
+            
+            Log::info('User created successfully', ['user_id' => $user->id]);
 
             // Assign customer role using Spatie
             $user->assignRole('customer');
+            Log::info('Customer role assigned');
 
             // Create customer profile
+            $customerCode = $this->generateCustomerCode();
+            Log::info('Generated customer code', ['code' => $customerCode]);
+            
             $customerData = [
                 'user_id' => $user->id,
-                'kode_pelanggan' => $this->generateCustomerCode(),
+                'kode_pelanggan' => $customerCode,
                 'nama_pelanggan' => $request->name,
                 'nomor_telepon' => $request->phone,
                 'email_pelanggan' => $request->email,
                 'alamat_pelanggan' => $request->address,
-                'jenis_pelanggan' => 'online',
-                'tanggal_bergabung' => now(),
+                'jenis_pelanggan' => 'member', // Changed from 'online' to 'member'
+                'tanggal_bergabung' => now()->toDateString(), // Convert to date string
                 'status_aktif' => true,
             ];
 
-            TmDataPelanggan::create($customerData);
+            Log::info('Customer data to be created', $customerData);
+            
+            $customer = TmDataPelanggan::create($customerData);
+            Log::info('Customer profile created', ['customer_id' => $customer->id]);
 
             DB::commit();
+            Log::info('Customer registration successful', ['user_id' => $user->id, 'email' => $user->email]);
 
-            // Log in the user
-            Auth::login($user);
-
-            return redirect()->route('shop.index')->with('success', 'Akun berhasil dibuat! Selamat datang di Hamdani Stationery.');
+            // Redirect to login page instead of auto-login
+            return redirect()->route('customer.login')->with('success', 'Akun berhasil dibuat! Silakan masuk untuk melanjutkan.');
 
         } catch (\Exception $e) {
             DB::rollback();
-            return back()->withErrors(['error' => 'Terjadi kesalahan saat membuat akun. Silakan coba lagi.']);
+            Log::error('Customer registration failed', [
+                'error_message' => $e->getMessage(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+                'stack_trace' => $e->getTraceAsString()
+            ]);
+            return back()->withErrors(['error' => 'Terjadi kesalahan saat membuat akun: ' . $e->getMessage()]);
         }
     }
 
@@ -147,13 +178,13 @@ class CustomerAuthController extends Controller
         return redirect('/shop')->with('success', 'Anda telah berhasil keluar.');
     }
 
-    /**
+        /**
      * Generate unique customer code.
      */
     private function generateCustomerCode()
     {
-        $prefix = 'CUS';
-        $date = now()->format('Ymd');
+        $prefix = 'PLG';
+        $date = date('Ymd');
         
         // Get the last customer code for today
         $lastCustomer = TmDataPelanggan::where('kode_pelanggan', 'like', $prefix . $date . '%')
@@ -167,7 +198,16 @@ class CustomerAuthController extends Controller
             $newNumber = 1;
         }
 
-        return $prefix . $date . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+        // Generate new code and check for uniqueness
+        do {
+            $newCode = $prefix . $date . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+            $exists = TmDataPelanggan::where('kode_pelanggan', $newCode)->exists();
+            if ($exists) {
+                $newNumber++;
+            }
+        } while ($exists);
+
+        return $newCode;
     }
 
     /**
@@ -183,12 +223,22 @@ class CustomerAuthController extends Controller
             ->first();
 
         if ($lastUser) {
-            $lastNumber = intval(substr($lastUser->kode_user, -3));
+            // Extract number from the last code (e.g., CUS001 -> 1)
+            $lastNumber = intval(substr($lastUser->kode_user, strlen($prefix)));
             $newNumber = $lastNumber + 1;
         } else {
             $newNumber = 1;
         }
 
-        return $prefix . str_pad($newNumber, 3, '0', STR_PAD_LEFT);
+        // Generate new code and check for uniqueness
+        do {
+            $newCode = $prefix . str_pad($newNumber, 3, '0', STR_PAD_LEFT);
+            $exists = User::where('kode_user', $newCode)->exists();
+            if ($exists) {
+                $newNumber++;
+            }
+        } while ($exists);
+
+        return $newCode;
     }
 }

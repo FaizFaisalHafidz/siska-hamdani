@@ -3,11 +3,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Eye, EyeOff, Lock, Mail, MapPin, Phone, ShoppingBag, User } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 
+interface PageProps {
+  errors: Record<string, string>;
+  [key: string]: any;
+}
+
 export default function CustomerRegister() {
+  const { errors } = usePage<PageProps>().props;
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -26,7 +32,10 @@ export default function CustomerRegister() {
     
     router.post('/customer/register', form, {
       onFinish: () => setIsLoading(false),
-      onError: () => setIsLoading(false)
+      onError: (errors) => {
+        setIsLoading(false);
+        console.log('Registration errors:', errors);
+      }
     });
   };
 
@@ -68,6 +77,15 @@ export default function CustomerRegister() {
             </CardHeader>
             
             <CardContent>
+              {/* General Error Display */}
+              {(errors.error || Object.keys(errors).length > 0) && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-700">
+                    {errors.error || 'Terjadi kesalahan pada form. Silakan periksa kembali.'}
+                  </p>
+                </div>
+              )}
+              
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Name */}
                 <div className="space-y-2">
@@ -83,8 +101,11 @@ export default function CustomerRegister() {
                     onChange={handleChange}
                     placeholder="Masukkan nama lengkap"
                     required
-                    className="h-11 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20"
+                    className={`h-11 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20 ${errors.name ? 'border-red-300 focus:border-red-500' : ''}`}
                   />
+                  {errors.name && (
+                    <p className="text-sm text-red-600 mt-1">{errors.name}</p>
+                  )}
                 </div>
 
                 {/* Email */}
@@ -156,7 +177,7 @@ export default function CustomerRegister() {
                       onChange={handleChange}
                       placeholder="Minimal 8 karakter"
                       required
-                      className="h-11 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20 pr-10"
+                      className={`h-11 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20 pr-10 ${errors.password ? 'border-red-300 focus:border-red-500' : ''}`}
                     />
                     <Button
                       type="button"
@@ -168,6 +189,9 @@ export default function CustomerRegister() {
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
                   </div>
+                  {errors.password && (
+                    <p className="text-sm text-red-600 mt-1">{errors.password}</p>
+                  )}
                 </div>
 
                 {/* Confirm Password */}
@@ -185,7 +209,7 @@ export default function CustomerRegister() {
                       onChange={handleChange}
                       placeholder="Ulangi password"
                       required
-                      className="h-11 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20 pr-10"
+                      className={`h-11 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20 pr-10 ${errors.password ? 'border-red-300 focus:border-red-500' : ''}`}
                     />
                     <Button
                       type="button"
@@ -197,6 +221,9 @@ export default function CustomerRegister() {
                       {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
                   </div>
+                  {errors.password && (
+                    <p className="text-sm text-red-600 mt-1">{errors.password}</p>
+                  )}
                 </div>
 
                 {/* Submit Button */}
