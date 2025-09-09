@@ -7,13 +7,93 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Kasir\CustomerController as KasirCustomerController;
 use App\Http\Controllers\PenjualanController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Shop\ShopController;
+use App\Http\Controllers\Shop\CartController;
+use App\Http\Controllers\Shop\CheckoutController;
+use App\Http\Controllers\Shop\OrderController;
+use App\Http\Controllers\Shop\PaymentController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::redirect('/', '/dashboard')->name('home');
+Route::redirect('/', '/shop')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+});
+
+// Shop routes (Public and Authenticated)
+Route::prefix('shop')->name('shop.')->group(function () {
+    // Public shop routes
+    Route::get('/', [ShopController::class, 'index'])->name('index');
+    Route::get('/products', [ShopController::class, 'products'])->name('products');
+    Route::get('/product/{id}', [ShopController::class, 'show'])->name('product.show');
+    Route::get('/categories', [ShopController::class, 'categories'])->name('categories');
+    Route::get('/category/{category}', [ShopController::class, 'category'])->name('category.show');
+    Route::get('/search', [ShopController::class, 'search'])->name('search');
+    
+    // API routes for shop
+    Route::get('/api/products', [ShopController::class, 'getProducts'])->name('api.products');
+    Route::get('/api/categories', [ShopController::class, 'getCategories'])->name('api.categories');
+    Route::get('/api/search', [ShopController::class, 'apiSearch'])->name('api.search');
+    
+    // Cart routes (can be used without auth for guest users)
+    Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
+    Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
+    Route::put('/cart/update', [CartController::class, 'update'])->name('cart.update');
+    Route::delete('/cart/remove/{id}', [CartController::class, 'remove'])->name('cart.remove');
+    Route::delete('/cart/clear', [CartController::class, 'clear'])->name('cart.clear');
+    Route::post('/cart/apply-promo', [CartController::class, 'applyPromo'])->name('cart.apply-promo');
+    Route::delete('/cart/remove-promo', [CartController::class, 'removePromo'])->name('cart.remove-promo');
+    
+    // Wishlist routes (guest can use session-based wishlist)
+    Route::get('/wishlist', [ShopController::class, 'wishlist'])->name('wishlist.index');
+    Route::post('/wishlist/add/{id}', [ShopController::class, 'addToWishlist'])->name('wishlist.add');
+    Route::delete('/wishlist/remove/{id}', [ShopController::class, 'removeFromWishlist'])->name('wishlist.remove');
+    
+    // Authenticated shop routes
+    Route::middleware(['auth'])->group(function () {
+        // Checkout routes
+        Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
+        Route::post('/checkout', [CheckoutController::class, 'process'])->name('checkout.process');
+        Route::get('/checkout/shipping', [CheckoutController::class, 'shipping'])->name('checkout.shipping');
+        Route::post('/checkout/calculate-shipping', [CheckoutController::class, 'calculateShipping'])->name('checkout.calculate-shipping');
+        
+        // Order routes
+        Route::post('/process-order', [OrderController::class, 'create'])->name('order.create');
+        Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
+        Route::get('/order/{orderNumber}', [OrderController::class, 'show'])->name('order.show');
+        Route::patch('/order/{orderNumber}/cancel', [OrderController::class, 'cancel'])->name('order.cancel');
+        
+        // Payment routes
+        Route::get('/payment/{orderNumber}', [PaymentController::class, 'show'])->name('payment.show');
+        Route::post('/payment/{orderNumber}/process', [PaymentController::class, 'process'])->name('payment.process');
+        Route::get('/payment/{orderNumber}/success', [PaymentController::class, 'success'])->name('payment.success');
+        Route::get('/payment/{orderNumber}/failed', [PaymentController::class, 'failed'])->name('payment.failed');
+        Route::post('/payment/webhook', [PaymentController::class, 'webhook'])->name('payment.webhook');
+        
+        // Invoice and receipt
+        Route::get('/order/{orderNumber}/invoice', [OrderController::class, 'invoice'])->name('order.invoice');
+        Route::get('/order/{orderNumber}/download', [OrderController::class, 'downloadInvoice'])->name('order.download');
+        Route::get('/order/{orderNumber}/print', [OrderController::class, 'printInvoice'])->name('order.print');
+        
+        // User account related to shop
+        Route::get('/profile', [ShopController::class, 'profile'])->name('profile');
+        Route::put('/profile', [ShopController::class, 'updateProfile'])->name('profile.update');
+        Route::get('/addresses', [ShopController::class, 'addresses'])->name('addresses');
+        Route::post('/addresses', [ShopController::class, 'storeAddress'])->name('addresses.store');
+        Route::put('/addresses/{id}', [ShopController::class, 'updateAddress'])->name('addresses.update');
+        Route::delete('/addresses/{id}', [ShopController::class, 'deleteAddress'])->name('addresses.delete');
+    });
+    
+    // Static pages
+    Route::get('/about', [ShopController::class, 'about'])->name('about');
+    Route::get('/contact', [ShopController::class, 'contact'])->name('contact');
+    Route::post('/contact', [ShopController::class, 'sendMessage'])->name('contact.send');
+    Route::get('/faq', [ShopController::class, 'faq'])->name('faq');
+    Route::get('/terms', [ShopController::class, 'terms'])->name('terms');
+    Route::get('/privacy', [ShopController::class, 'privacy'])->name('privacy');
+    Route::get('/shipping-info', [ShopController::class, 'shippingInfo'])->name('shipping-info');
+    Route::get('/return-policy', [ShopController::class, 'returnPolicy'])->name('return-policy');
 });
 
 // Admin routes with authentication and role middleware
@@ -202,3 +282,4 @@ Route::middleware(['auth', 'role:admin,kasir'])->prefix('pos')->name('pos.')->gr
 });
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
+require __DIR__.'/customer.php';

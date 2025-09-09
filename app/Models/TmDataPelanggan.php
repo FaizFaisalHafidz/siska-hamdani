@@ -15,6 +15,7 @@ class TmDataPelanggan extends Model
     protected $table = 'tm_data_pelanggan';
 
     protected $fillable = [
+        'user_id',
         'kode_pelanggan',
         'nama_pelanggan',
         'nomor_telepon',
@@ -179,5 +180,13 @@ class TmDataPelanggan extends Model
             'rata_rata_pembelian_format' => $jumlahTransaksi > 0 ? 
                 'Rp ' . number_format($totalPembelian / $jumlahTransaksi, 0, ',', '.') : 'Rp 0',
         ];
+    }
+
+    /**
+     * Get the user associated with this customer.
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 }

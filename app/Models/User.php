@@ -29,6 +29,7 @@ class User extends Authenticatable
         'tanggal_bergabung',
         'status_aktif',
         'terakhir_login',
+        'terakhir_login',
     ];
 
     /**
@@ -103,5 +104,29 @@ class User extends Authenticatable
     public function updateLastLogin()
     {
         $this->update(['terakhir_login' => now()]);
+    }
+
+    /**
+     * Get the customer profile associated with this user.
+     */
+    public function customerProfile()
+    {
+        return $this->hasOne(TmDataPelanggan::class, 'user_id');
+    }
+
+    /**
+     * Get the cart items for this user.
+     */
+    public function cartItems()
+    {
+        return $this->hasMany(CartItem::class);
+    }
+
+    /**
+     * Get the orders for this user.
+     */
+    public function orders()
+    {
+        return $this->hasMany(TtDataPenjualan::class, 'customer_id');
     }
 }

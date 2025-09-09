@@ -14,8 +14,11 @@ class TtDetailPenjualan extends Model
 
     protected $fillable = [
         'penjualan_id',
+        'id_penjualan', // Alias for e-commerce
         'produk_id',
+        'id_produk', // Alias for e-commerce
         'jumlah_beli',
+        'jumlah_produk', // Alias for e-commerce
         'harga_satuan',
         'diskon_item',
         'subtotal',
