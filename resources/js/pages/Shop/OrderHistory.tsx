@@ -3,37 +3,43 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ShopLayout from '@/layouts/shop-layout';
 import { Head, Link } from '@inertiajs/react';
-import { Calendar, Eye, Package, Receipt } from 'lucide-react';
+import { Calendar, Package, Receipt } from 'lucide-react';
 
 interface Order {
   id: number;
-  kode_transaksi: string;
-  tanggal_transaksi: string;
+  nomor_invoice: string;
+  tanggal_penjualan: string;
   total_harga: number;
   metode_pembayaran: string;
-  status_pembayaran: string;
-  shipping_method: string;
-  shipping_cost: number;
-  delivery_address: string;
-  items: Array<{
+  status_transaksi: string;
+  alamat_pengiriman: string;
+  biaya_pengiriman: number;
+  details: Array<{
     id: number;
     produk: {
       nama_produk: string;
       gambar_produk: string;
     };
-    jumlah_produk: number;
+    jumlah_beli: number;
     harga_satuan: number;
     subtotal: number;
   }>;
 }
 
 interface Props {
-  orders: Order[];
+  orders: Order[] | { data: Order[]; [key: string]: any };
 }
 
 export default function OrderHistory({ orders }: Props) {
-  // Ensure orders is always an array
-  const ordersList = Array.isArray(orders) ? orders : [];
+  // Debug: Log the orders data structure
+  console.log('Orders received:', orders);
+  console.log('Orders type:', typeof orders);
+  console.log('Orders.data exists?', orders && typeof orders === 'object' && 'data' in orders);
+  
+  // Handle both paginated and direct array
+  const ordersList = Array.isArray(orders) ? orders : (orders && orders.data ? orders.data : []);
+  
+  console.log('Final ordersList:', ordersList);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -125,16 +131,16 @@ export default function OrderHistory({ orders }: Props) {
                     <div className="flex items-center justify-between">
                       <div>
                         <CardTitle className="text-lg">
-                          #{order.kode_transaksi}
+                          #{order.nomor_invoice}
                         </CardTitle>
                         <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
                           <Calendar className="h-4 w-4" />
-                          {formatDate(order.tanggal_transaksi)}
+                          {formatDate(order.tanggal_penjualan)}
                         </div>
                       </div>
                       <div className="text-right">
-                        <Badge variant={getStatusBadgeVariant(order.status_pembayaran)}>
-                          {getStatusText(order.status_pembayaran)}
+                        <Badge variant={getStatusBadgeVariant(order.status_transaksi)}>
+                          {getStatusText(order.status_transaksi)}
                         </Badge>
                         <div className="text-lg font-semibold text-gray-900 mt-1">
                           {formatPrice(order.total_harga)}
@@ -146,12 +152,12 @@ export default function OrderHistory({ orders }: Props) {
                   <CardContent>
                     {/* Order Items */}
                     <div className="space-y-3 mb-4">
-                      {order.items.slice(0, 2).map((item) => (
+                      {order.details.slice(0, 2).map((item) => (
                         <div key={item.id} className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                          <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
                             {item.produk.gambar_produk ? (
                               <img
-                                src={item.produk.gambar_produk}
+                                src={`/storage/${item.produk.gambar_produk}`}
                                 alt={item.produk.nama_produk}
                                 className="w-full h-full object-cover"
                               />
@@ -160,46 +166,44 @@ export default function OrderHistory({ orders }: Props) {
                             )}
                           </div>
                           <div className="flex-1">
-                            <p className="font-medium text-gray-900">
+                            <h4 className="font-medium text-gray-900 line-clamp-2">
                               {item.produk.nama_produk}
-                            </p>
+                            </h4>
                             <p className="text-sm text-gray-500">
-                              {item.jumlah_produk}x {formatPrice(item.harga_satuan)}
+                              {item.jumlah_beli}x • {formatPrice(item.harga_satuan)}
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="font-medium">
-                              {formatPrice(item.subtotal)}
-                            </p>
+                            <p className="font-medium">{formatPrice(item.subtotal)}</p>
                           </div>
                         </div>
                       ))}
                       
-                      {order.items.length > 2 && (
-                        <p className="text-sm text-gray-500 pl-15">
-                          +{order.items.length - 2} produk lainnya
-                        </p>
+                      {order.details.length > 2 && (
+                        <div className="text-center py-2 text-sm text-gray-500 bg-gray-50 rounded-lg">
+                          +{order.details.length - 2} produk lainnya
+                        </div>
                       )}
                     </div>
 
                     {/* Order Summary */}
                     <div className="border-t pt-4">
                       <div className="flex items-center justify-between text-sm">
-                        <div className="space-y-1">
+                        {/* <div className="space-y-1">
                           <p><span className="text-gray-500">Pembayaran:</span> {order.metode_pembayaran}</p>
-                          <p><span className="text-gray-500">Pengiriman:</span> {order.shipping_method}</p>
-                          {order.delivery_address && (
-                            <p><span className="text-gray-500">Alamat:</span> {order.delivery_address}</p>
+                          <p><span className="text-gray-500">Ongkir:</span> {formatPrice(order.biaya_pengiriman)}</p>
+                          {order.alamat_pengiriman && (
+                            <p><span className="text-gray-500">Alamat:</span> {order.alamat_pengiriman}</p>
                           )}
-                        </div>
+                        </div> */}
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm" asChild>
+                          {/* <Button variant="outline" size="sm" asChild>
                             <Link href={`/customer/orders/${order.id}`}>
                               <Eye className="h-4 w-4 mr-2" />
                               Detail
                             </Link>
-                          </Button>
-                          {order.status_pembayaran === 'delivered' && (
+                          </Button> */}
+                          {order.status_transaksi === 'completed' && (
                             <Button variant="outline" size="sm">
                               <Receipt className="h-4 w-4 mr-2" />
                               Beli Lagi

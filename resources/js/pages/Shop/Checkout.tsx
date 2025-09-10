@@ -2,15 +2,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import ShopLayout from '@/layouts/shop-layout';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import {
-    ArrowLeft,
-    CreditCard,
-    MapPin
+  ArrowLeft,
+  Banknote,
+  Building,
+  CheckCircle,
+  Clock,
+  CreditCard,
+  MapPin,
+  Shield,
+  Wallet
 } from 'lucide-react';
 import React, { useState } from 'react';
 
@@ -66,6 +71,14 @@ export default function CheckoutPage({
 }: Props) {
   const [selectedPayment, setSelectedPayment] = useState<number | null>(null);
   const [processing, setProcessing] = useState(false);
+  
+  // Debug user data
+  console.log('User data:', user);
+  
+  // Detect pickup based on selected payment method (Cash on Delivery = Pickup)
+  const selectedPaymentMethod = paymentMethods.find(p => p.id === selectedPayment);
+  const isPickup = selectedPaymentMethod?.type === 'cash_on_delivery';
+  
   const [formData, setFormData] = useState({
     recipient_name: user?.name || '',
     phone: user?.phone || '',
@@ -104,6 +117,44 @@ export default function CheckoutPage({
     }
   };
 
+  const updateFormData = (key: string, value: string) => {
+    setFormData(prev => ({ ...prev, [key]: value }));
+    // Clear error when user starts typing
+    if (errors[key]) {
+      setErrors(prev => ({ ...prev, [key]: '' }));
+    }
+  };
+
+  const isFormValid = () => {
+    if (!selectedPayment) {
+      console.log('No payment method selected');
+      return false;
+    }
+    
+    console.log('Form validation check:');
+    console.log('- selectedPayment:', selectedPayment);
+    console.log('- isPickup:', isPickup);
+    console.log('- recipient_name:', `"${formData.recipient_name}"`);
+    console.log('- phone:', `"${formData.phone}"`);
+    console.log('- address:', `"${formData.address}"`);
+    console.log('- city:', `"${formData.city}"`);
+    
+    if (isPickup) {
+      // For pickup, only need name and phone
+      const isValid = !!(formData.recipient_name.trim() && formData.phone.trim());
+      console.log('Pickup validation result:', isValid);
+      return isValid;
+    } else {
+      // For delivery, need full address
+      const isValid = !!(formData.recipient_name.trim() && 
+               formData.phone.trim() && 
+               formData.address.trim() && 
+               formData.city.trim());
+      console.log('Delivery validation result:', isValid);
+      return isValid;
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -112,15 +163,52 @@ export default function CheckoutPage({
       return;
     }
 
+    // Only validate shipping fields if not pickup
+    if (!isPickup) {
+      const requiredFields = ['recipient_name', 'phone', 'address', 'city'];
+      const newErrors: Record<string, string> = {};
+      
+      requiredFields.forEach(field => {
+        if (!formData[field as keyof typeof formData].trim()) {
+          newErrors[field] = 'Field ini wajib diisi';
+        }
+      });
+      
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        return;
+      }
+    } else {
+      // For pickup, only validate basic fields
+      const newErrors: Record<string, string> = {};
+      
+      if (!formData.recipient_name.trim()) {
+        newErrors.recipient_name = 'Nama penerima wajib diisi';
+      }
+      if (!formData.phone.trim()) {
+        newErrors.phone = 'Nomor telepon wajib diisi';
+      }
+      
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        return;
+      }
+    }
+
     setProcessing(true);
     
-    const submitData = {
+    const submitData: any = {
       ...formData,
       payment_method_id: selectedPayment,
       promo_code: promoCode || '',
-      shipping_id: shippingId,
+      pickup_option: isPickup,
       items: JSON.stringify(cartItems)
     };
+
+    // Only add shipping data if not pickup
+    if (!isPickup) {
+      submitData.shipping_id = shippingId;
+    }
     
     router.post('/shop/process-order', submitData, {
       onFinish: () => setProcessing(false),
@@ -129,13 +217,6 @@ export default function CheckoutPage({
         setProcessing(false);
       }
     });
-  };
-
-  const updateFormData = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
   };
 
   return (
@@ -170,8 +251,13 @@ export default function CheckoutPage({
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MapPin className="h-5 w-5" />
-                    Alamat Pengiriman
+                    {isPickup ? 'Informasi Pemesan' : 'Alamat Pengiriman'}
                   </CardTitle>
+                  {isPickup && (
+                    <p className="text-sm text-gray-600">
+                      Anda memilih pickup di tempat. Pesanan akan siap diambil dalam 30 menit setelah konfirmasi pembayaran.
+                    </p>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -182,6 +268,7 @@ export default function CheckoutPage({
                         value={formData.recipient_name}
                         onChange={(e) => updateFormData('recipient_name', e.target.value)}
                         className={errors.recipient_name ? 'border-red-500' : ''}
+                        placeholder="Masukkan nama penerima"
                         required
                       />
                       {errors.recipient_name && (
@@ -197,6 +284,7 @@ export default function CheckoutPage({
                         value={formData.phone}
                         onChange={(e) => updateFormData('phone', e.target.value)}
                         className={errors.phone ? 'border-red-500' : ''}
+                        placeholder="Masukkan nomor telepon"
                         required
                       />
                       {errors.phone && (
@@ -206,91 +294,95 @@ export default function CheckoutPage({
                   </div>
 
                   <div>
-                    <Label htmlFor="email">Email *</Label>
+                    <Label htmlFor="email">Email</Label>
                     <Input
                       id="email"
                       type="email"
                       value={formData.email}
                       onChange={(e) => updateFormData('email', e.target.value)}
                       className={errors.email ? 'border-red-500' : ''}
-                      required
                     />
                     {errors.email && (
                       <p className="text-sm text-red-500 mt-1">{errors.email}</p>
                     )}
                   </div>
 
-                  <div>
-                    <Label htmlFor="address">Alamat Lengkap *</Label>
+                  {!isPickup && (
+                    <>
+                      <div>
+                        <Label htmlFor="address">Alamat Lengkap *</Label>
+                        <Textarea
+                          id="address"
+                          value={formData.address}
+                          onChange={(e) => updateFormData('address', e.target.value)}
+                          className={errors.address ? 'border-red-500' : ''}
+                          placeholder="Jl. Nama Jalan No. XX, RT/RW, Kelurahan"
+                          rows={3}
+                          required
+                        />
+                        {errors.address && (
+                          <p className="text-sm text-red-500 mt-1">{errors.address}</p>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <Label htmlFor="city">Kota *</Label>
+                          <Input
+                            id="city"
+                            value={formData.city}
+                            onChange={(e) => updateFormData('city', e.target.value)}
+                            className={errors.city ? 'border-red-500' : ''}
+                            required
+                          />
+                          {errors.city && (
+                            <p className="text-sm text-red-500 mt-1">{errors.city}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="postal_code">Kode Pos</Label>
+                          <Input
+                            id="postal_code"
+                            value={formData.postal_code}
+                            onChange={(e) => updateFormData('postal_code', e.target.value)}
+                            className={errors.postal_code ? 'border-red-500' : ''}
+                          />
+                          {errors.postal_code && (
+                            <p className="text-sm text-red-500 mt-1">{errors.postal_code}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="province">Provinsi</Label>
+                          <Input
+                            id="province"
+                            value={formData.province}
+                            onChange={(e) => updateFormData('province', e.target.value)}
+                            className={errors.province ? 'border-red-500' : ''}
+                          />
+                          {errors.province && (
+                            <p className="text-sm text-red-500 mt-1">{errors.province}</p>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                                    <div>
+                    <Label htmlFor="notes">Catatan Pesanan</Label>
                     <Textarea
-                      id="address"
-                      value={formData.address}
-                      onChange={(e) => updateFormData('address', e.target.value)}
-                      className={errors.address ? 'border-red-500' : ''}
-                      placeholder="Jl. Nama Jalan No. XX, RT/RW, Kelurahan"
+                      id="notes"
+                      value={formData.notes}
+                      onChange={(e) => updateFormData('notes', e.target.value)}
+                      placeholder="Catatan khusus untuk pesanan Anda (opsional)"
                       rows={3}
-                      required
                     />
-                    {errors.address && (
-                      <p className="text-sm text-red-500 mt-1">{errors.address}</p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label htmlFor="city">Kota *</Label>
-                      <Input
-                        id="city"
-                        value={formData.city}
-                        onChange={(e) => updateFormData('city', e.target.value)}
-                        className={errors.city ? 'border-red-500' : ''}
-                        required
-                      />
-                      {errors.city && (
-                        <p className="text-sm text-red-500 mt-1">{errors.city}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="province">Provinsi *</Label>
-                      <Select value={formData.province} onValueChange={(value) => updateFormData('province', value)}>
-                        <SelectTrigger className={errors.province ? 'border-red-500' : ''}>
-                          <SelectValue placeholder="Pilih provinsi" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="DKI Jakarta">DKI Jakarta</SelectItem>
-                          <SelectItem value="Jawa Barat">Jawa Barat</SelectItem>
-                          <SelectItem value="Jawa Tengah">Jawa Tengah</SelectItem>
-                          <SelectItem value="Jawa Timur">Jawa Timur</SelectItem>
-                          <SelectItem value="Banten">Banten</SelectItem>
-                          <SelectItem value="Yogyakarta">Yogyakarta</SelectItem>
-                          {/* Add more provinces as needed */}
-                        </SelectContent>
-                      </Select>
-                      {errors.province && (
-                        <p className="text-sm text-red-500 mt-1">{errors.province}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="postal_code">Kode Pos *</Label>
-                      <Input
-                        id="postal_code"
-                        value={formData.postal_code}
-                        onChange={(e) => updateFormData('postal_code', e.target.value)}
-                        className={errors.postal_code ? 'border-red-500' : ''}
-                        placeholder="12345"
-                        required
-                      />
-                      {errors.postal_code && (
-                        <p className="text-sm text-red-500 mt-1">{errors.postal_code}</p>
-                      )}
-                    </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Payment Method */}
+
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -333,21 +425,6 @@ export default function CheckoutPage({
                   {errors.payment_method_id && (
                     <p className="text-sm text-red-500 mt-2">{errors.payment_method_id}</p>
                   )}
-                </CardContent>
-              </Card>
-
-              {/* Order Notes */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Catatan Pesanan (Opsional)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Textarea
-                    value={formData.notes}
-                    onChange={(e) => updateFormData('notes', e.target.value)}
-                    placeholder="Tambahkan catatan khusus untuk pesanan Anda..."
-                    rows={3}
-                  />
                 </CardContent>
               </Card>
             </div>
@@ -444,7 +521,7 @@ export default function CheckoutPage({
                   <CardContent className="p-6">
                     <Button 
                       type="submit"
-                      disabled={processing || !selectedPayment}
+                      disabled={processing || !isFormValid()}
                       className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                       size="lg"
                     >
@@ -460,6 +537,15 @@ export default function CheckoutPage({
                         </>
                       )}
                     </Button>
+                    
+                    {/* Debug info */}
+                    <div className="mt-2 p-2 bg-gray-100 text-xs">
+                      <p>Debug: Form Valid = {isFormValid() ? 'YES' : 'NO'}</p>
+                      <p>Payment Selected = {selectedPayment || 'NONE'}</p>
+                      <p>Is Pickup = {isPickup ? 'YES' : 'NO'}</p>
+                      <p>Name = "{formData.recipient_name}"</p>
+                      <p>Phone = "{formData.phone}"</p>
+                    </div>
                     
                     <div className="flex items-center justify-center gap-2 text-sm text-gray-600 mt-3">
                       <Shield className="h-4 w-4" />

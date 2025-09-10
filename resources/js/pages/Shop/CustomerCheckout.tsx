@@ -80,8 +80,13 @@ export default function Checkout({ cartItems, subtotal, customerProfile, tokoLoc
     setForm(prev => ({ ...prev, is_pickup: isPickup }));
     
     if (isPickup) {
-      // Pickup langsung tanpa perlu lokasi
-      calculateShipping(0, 0, true);
+      // Pickup langsung tanpa perlu lokasi - set shipping cost ke 0 dan method
+      setShipping({ 
+        distance: 0, 
+        cost: 0, 
+        method: 'pickup', 
+        estimated_time: 'Siap diambil dalam 30 menit' 
+      });
     } else {
       // Reset shipping dan minta lokasi lagi
       setShipping({ distance: 0, cost: 0, method: '', estimated_time: '' });
@@ -162,7 +167,8 @@ export default function Checkout({ cartItems, subtotal, customerProfile, tokoLoc
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!form.customer_lat || !form.customer_lng) {
+    // Only require location if not pickup
+    if (!form.is_pickup && (!form.customer_lat || !form.customer_lng)) {
       setLocationError('Silakan dapatkan lokasi terlebih dahulu');
       return;
     }
@@ -176,10 +182,15 @@ export default function Checkout({ cartItems, subtotal, customerProfile, tokoLoc
 
     const formData = new FormData();
     formData.append('alamat_pengiriman', form.alamat_pengiriman);
-    formData.append('customer_lat', form.customer_lat.toString());
-    formData.append('customer_lng', form.customer_lng.toString());
     formData.append('metode_pembayaran', form.metode_pembayaran);
     formData.append('catatan_pesanan', form.catatan_pesanan);
+    formData.append('is_pickup', form.is_pickup.toString());
+    
+    // Only add location data if not pickup
+    if (!form.is_pickup) {
+      formData.append('customer_lat', form.customer_lat.toString());
+      formData.append('customer_lng', form.customer_lng.toString());
+    }
     
     if (form.bukti_transfer) {
       formData.append('bukti_transfer', form.bukti_transfer);
@@ -195,6 +206,16 @@ export default function Checkout({ cartItems, subtotal, customerProfile, tokoLoc
   };
 
   const total = subtotal + (form.is_pickup ? 0 : shipping.cost);
+
+  const isFormValid = () => {
+    // If pickup, form is always valid (no location needed)
+    if (form.is_pickup) {
+      return true;
+    }
+    
+    // If delivery, need shipping calculation
+    return shipping.cost > 0 || shipping.method !== '';
+  };
 
   return (
     <ShopLayout>
@@ -465,7 +486,7 @@ export default function Checkout({ cartItems, subtotal, customerProfile, tokoLoc
 
                   <Button 
                     onClick={handleSubmit}
-                    disabled={isProcessing || shipping.cost === 0}
+                    disabled={isProcessing || !isFormValid()}
                     className="w-full h-12"
                   >
                     {isProcessing ? (

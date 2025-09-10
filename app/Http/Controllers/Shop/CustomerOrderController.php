@@ -76,6 +76,29 @@ class CustomerOrderController extends Controller
         return Inertia::render('Shop/CustomerCheckout', [
             'cartItems' => $cartItems,
             'subtotal' => $subtotal,
+            'shippingCost' => 0, // Default shipping cost
+            'discount' => 0, // Default discount
+            'total' => $subtotal, // Initial total without shipping
+            'paymentMethods' => [
+                [
+                    'id' => 1,
+                    'name' => 'Transfer Bank',
+                    'type' => 'bank_transfer',
+                    'description' => 'Transfer ke rekening BCA/Mandiri'
+                ],
+                [
+                    'id' => 2,
+                    'name' => 'E-Wallet',
+                    'type' => 'e_wallet', 
+                    'description' => 'OVO, GoPay, DANA'
+                ],
+                [
+                    'id' => 3,
+                    'name' => 'Bayar Ditempat (Pickup)',
+                    'type' => 'cash_on_delivery',
+                    'description' => 'Bayar saat ambil pesanan'
+                ]
+            ],
             'customerProfile' => $customerProfile,
             'tokoLocation' => [
                 'lat' => $this->tokoLat,
@@ -83,7 +106,8 @@ class CustomerOrderController extends Controller
                 'address' => 'Hamdani Stationery Store, Jl. Terusan Kopo No. 30, Bandung'
             ],
             'auth' => [
-                'customer' => $customerAuth
+                'customer' => $customerAuth,
+                'user' => $customerAuth // Alias for compatibility
             ]
         ]);
     }
@@ -245,7 +269,7 @@ class CustomerOrderController extends Controller
                 'metode_pembayaran' => $request->metode_pembayaran,
                 'status_pembayaran' => $request->metode_pembayaran === 'cod' ? 'pending' : 'pending',
                 'status_pesanan' => 'pending',
-                'alamat_pengiriman' => $request->alamat_pengiriman,
+                'alamat_pengiriman' => $request->pickup_option ? null : $request->alamat_pengiriman,
                 'ongkos_kirim' => $shippingCost,
                 'metode_pengiriman' => $shippingMethod,
                 'jarak_km' => $distance,
@@ -325,17 +349,48 @@ class CustomerOrderController extends Controller
      */
     public function orderHistory()
     {
-        if (!Auth::check()) {
+        // Use session customer_id for consistency with processOrder
+        $customerId = session('customer_id');
+        
+        // Debug information
+        Log::info('OrderHistory Debug', [
+            'session_customer_id' => $customerId,
+            'session_all' => session()->all(),
+            'auth_check' => Auth::check(),
+            'auth_user' => Auth::user() ? Auth::user()->name : null
+        ]);
+        
+        if (!$customerId) {
+            Log::warning('No customer session found, redirecting to login');
             return redirect()->route('customer.login');
         }
 
+        // Get customer data for auth context
+        $customer = \App\Models\TmDataPelanggan::find($customerId);
+        
+        // Debug customer data
+        Log::info('Customer found', ['customer' => $customer ? $customer->toArray() : null]);
+
+        // Get all orders for debugging
+        $allOrders = TtDataPenjualan::all(['id', 'customer_id', 'nomor_invoice', 'total_harga']);
+        Log::info('All orders in database', ['orders' => $allOrders->toArray()]);
+
         $orders = TtDataPenjualan::with(['details.produk'])
-            ->where('customer_id', Auth::user()->customerProfile->id ?? null)
+            ->where('customer_id', $customerId)
             ->orderBy('created_at', 'desc')
-            ->paginate(10);
+            ->get(); // Use get() instead of paginate() for debugging
+
+        Log::info('Orders for customer', [
+            'customer_id' => $customerId,
+            'orders_count' => $orders->count(),
+            'orders' => $orders->toArray()
+        ]);
 
         return Inertia::render('Shop/OrderHistory', [
-            'orders' => $orders
+            'orders' => $orders,
+            'auth' => [
+                'customer' => $customer
+            ]
         ]);
     }
 
@@ -344,13 +399,26 @@ class CustomerOrderController extends Controller
      */
     public function orderDetail($orderId)
     {
+        // Use session customer_id for consistency
+        $customerId = session('customer_id');
+        
+        if (!$customerId) {
+            return redirect()->route('customer.login');
+        }
+
+        // Get customer data for auth context
+        $customer = \App\Models\TmDataPelanggan::find($customerId);
+
         $order = TtDataPenjualan::with(['details.produk', 'customer'])
             ->where('id', $orderId)
-            ->where('customer_id', Auth::user()->customerProfile->id ?? null)
+            ->where('customer_id', $customerId)
             ->firstOrFail();
 
         return Inertia::render('Shop/OrderDetail', [
-            'order' => $order
+            'order' => $order,
+            'auth' => [
+                'customer' => $customer
+            ]
         ]);
     }
 
