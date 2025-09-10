@@ -88,6 +88,13 @@ class CartController extends Controller
         $product = TmDataProduk::find($request->product_id);
         
         if ($request->quantity > $product->stok_tersedia) {
+            // For Inertia requests
+            if ($request->header('X-Inertia')) {
+                return redirect()->back()->withErrors([
+                    'error' => 'Jumlah melebihi stok yang tersedia'
+                ]);
+            }
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Jumlah melebihi stok yang tersedia'
@@ -103,30 +110,47 @@ class CartController extends Controller
             session()->put('cart', $cart);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Keranjang berhasil diperbarui',
-            'cartCount' => collect($cart)->sum('quantity')
+        // Always return JSON for AJAX requests
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Jumlah produk berhasil diupdate',
+                'cartItems' => $this->getCartItems($request)
+            ]);
+        }
+
+        // For browser requests, redirect back to cart page
+        return redirect()->route('shop.cart')->with([
+            'success' => 'Jumlah produk berhasil diupdate'
         ]);
     }
 
-    public function remove($id)
+    public function remove(Request $request)
     {
         $cart = session()->get('cart', []);
-        
-        if (isset($cart[$id])) {
-            unset($cart[$id]);
+        $productId = $request->product_id ?? $request->route('id');
+
+        if (isset($cart[$productId])) {
+            unset($cart[$productId]);
             session()->put('cart', $cart);
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Product berhasil dihapus dari keranjang',
-            'cartCount' => collect($cart)->sum('quantity')
-        ]);
-    }
+        // Always return JSON for AJAX requests
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Product berhasil dihapus dari keranjang',
+                'cartItems' => $this->getCartItems($request),
+                'cartCount' => collect($cart)->sum('quantity')
+            ]);
+        }
 
-    public function clear()
+        // For browser requests, redirect back to cart page
+        return redirect()->route('shop.cart')->with([
+            'success' => true,
+            'message' => 'Product berhasil dihapus dari keranjang'
+        ]);
+    }    public function clear()
     {
         session()->forget('cart');
         session()->forget('applied_promo');
@@ -185,7 +209,15 @@ class CartController extends Controller
     private function getCartItems()
     {
         $cart = session()->get('cart', []);
-        return array_values($cart);
+        
+        // Transform cart data untuk Cart.tsx frontend
+        return collect($cart)->map(function ($item) {
+            return [
+                'product' => $item['product'],
+                'quantity' => $item['quantity'],
+                'subtotal' => $item['subtotal'],
+            ];
+        })->values()->all();
     }
 
     private function getAvailablePromoCodes()

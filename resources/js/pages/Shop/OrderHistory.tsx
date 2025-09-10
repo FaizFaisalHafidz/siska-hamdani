@@ -32,6 +32,9 @@ interface Props {
 }
 
 export default function OrderHistory({ orders }: Props) {
+  // Ensure orders is always an array
+  const ordersList = Array.isArray(orders) ? orders : [];
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -99,7 +102,7 @@ export default function OrderHistory({ orders }: Props) {
           </div>
 
           {/* Orders List */}
-          {orders.length === 0 ? (
+          {ordersList.length === 0 ? (
             <Card className="text-center py-12">
               <CardContent>
                 <Package className="mx-auto h-16 w-16 text-gray-400 mb-4" />
@@ -116,7 +119,7 @@ export default function OrderHistory({ orders }: Props) {
             </Card>
           ) : (
             <div className="space-y-6">
-              {orders.map((order) => (
+              {ordersList.map((order) => (
                 <Card key={order.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader className="pb-4">
                     <div className="flex items-center justify-between">

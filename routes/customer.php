@@ -23,8 +23,8 @@ Route::get('/customer/order-success/{order}', [CustomerOrderController::class, '
 // Cart Management (without middleware for testing)
 Route::get('/shop/cart', [CartController::class, 'index'])->name('shop.cart');
 Route::post('/api/cart/add', [CartController::class, 'add'])->name('api.cart.add');
-Route::put('/api/cart/{id}', [CartController::class, 'update'])->name('api.cart.update');
-Route::delete('/api/cart/{id}', [CartController::class, 'remove'])->name('api.cart.remove');
+Route::put('/api/cart/update', [CartController::class, 'update'])->name('api.cart.update');
+Route::delete('/api/cart/remove/{id}', [CartController::class, 'remove'])->name('api.cart.remove');
 Route::delete('/api/cart', [CartController::class, 'clear'])->name('api.cart.clear');
 Route::get('/api/cart/count', [CartController::class, 'count'])->name('api.cart.count');
 

@@ -14,7 +14,7 @@ class CheckoutController extends Controller
         $cart = session()->get('cart', []);
         
         if (empty($cart)) {
-            return redirect()->route('shop.cart.index')
+            return redirect()->route('shop.cart')
                 ->with('error', 'Keranjang belanja Anda kosong');
         }
 

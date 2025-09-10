@@ -45,6 +45,13 @@ Route::prefix('shop')->name('shop.')->group(function () {
     Route::post('/cart/apply-promo', [CartController::class, 'applyPromo'])->name('cart.apply-promo');
     Route::delete('/cart/remove-promo', [CartController::class, 'removePromo'])->name('cart.remove-promo');
     
+    // API Cart routes untuk frontend
+    Route::prefix('api')->name('api.')->group(function () {
+        Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
+        Route::post('/cart/update', [CartController::class, 'update'])->name('cart.update');
+        Route::delete('/cart/remove/{id}', [CartController::class, 'remove'])->name('cart.remove');
+    });
+    
     // Wishlist routes (guest can use session-based wishlist)
     Route::get('/wishlist', [ShopController::class, 'wishlist'])->name('wishlist.index');
     Route::post('/wishlist/add/{id}', [ShopController::class, 'addToWishlist'])->name('wishlist.add');

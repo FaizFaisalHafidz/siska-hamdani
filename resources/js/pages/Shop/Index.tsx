@@ -76,39 +76,98 @@ export default function ShopIndex({ products, categories, cartItems = [], filter
     }).format(price);
   };
 
-  const addToCart = (product: Product) => {
+  const addToCart = async (product: Product) => {
     // Check if customer is logged in
     if (!auth?.customer) {
       router.visit('/customer/login');
       return;
     }
 
-    // Send to backend
-    router.post('/api/cart/add', {
-      product_id: product.id,
-      quantity: 1
-    }, {
-      preserveState: false,
-      preserveScroll: true,
-      onSuccess: () => {
-        // Data will be refreshed from server automatically
-        // The cart state will be updated from props
-      },
-      onError: (errors) => {
-        console.error('Failed to add to cart:', errors);
+    try {
+      // Send to backend
+      const response = await fetch('/api/cart/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        },
+        body: JSON.stringify({
+          product_id: product.id,
+          quantity: 1
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Update local state immediately for real-time UI update
+        const existingItem = cart.find(item => item.product.id === product.id);
+        if (existingItem) {
+          // Update existing item quantity
+          setCart(prev => prev.map(item => 
+            item.product.id === product.id 
+              ? { ...item, quantity: item.quantity + 1 }
+              : item
+          ));
+        } else {
+          // Add new item to cart
+          setCart(prev => [...prev, { product, quantity: 1 }]);
+        }
       }
-    });
+    } catch (error) {
+      console.error('Failed to add to cart:', error);
+    }
   };
 
-  const updateQuantity = (productId: number, quantity: number) => {
+  const updateQuantity = async (productId: number, quantity: number) => {
     if (quantity === 0) {
-      setCart(cart.filter(item => item.product.id !== productId));
+      // Remove from cart
+      try {
+        const response = await fetch(`/api/cart/remove/${productId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          // Update local state immediately for real-time UI update
+          setCart(prev => prev.filter(item => item.product.id !== productId));
+        }
+      } catch (error) {
+        console.error('Failed to remove from cart:', error);
+      }
     } else {
-      setCart(cart.map(item =>
-        item.product.id === productId
-          ? { ...item, quantity }
-          : item
-      ));
+      // Update quantity
+      try {
+        const response = await fetch('/api/cart/update', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          },
+          body: JSON.stringify({
+            product_id: productId,
+            quantity: quantity
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          // Update local state immediately for real-time UI update
+          setCart(prev => prev.map(item => 
+            item.product.id === productId 
+              ? { ...item, quantity: quantity }
+              : item
+          ));
+        }
+      } catch (error) {
+        console.error('Failed to update cart:', error);
+      }
     }
   };
 

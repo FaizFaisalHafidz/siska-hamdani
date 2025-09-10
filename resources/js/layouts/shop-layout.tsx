@@ -27,13 +27,16 @@ import {
     Mail,
     MapPin,
     Menu,
+    Minus,
     Package,
     Phone,
+    Plus,
     Search,
     ShoppingCart,
+    Trash2,
     Twitter
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface ShopLayoutProps {
   children: React.ReactNode;
@@ -54,6 +57,7 @@ interface CartItem {
     nama_produk: string;
     harga_jual: number;
     gambar_produk?: string;
+    stok_tersedia: number;
   };
   quantity: number;
 }
@@ -62,6 +66,76 @@ export default function ShopLayout({ children, cartItemsCount = 0, cartItems = [
   const { auth } = usePage().props as any;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [localCartItems, setLocalCartItems] = useState<CartItem[]>(cartItems);
+  const [localCartCount, setLocalCartCount] = useState(cartItemsCount);
+
+  // Memoize cartItems untuk mencegah re-render tak terbatas
+  const memoizedCartItems = useMemo(() => cartItems, [JSON.stringify(cartItems)]);
+  
+  // Sync with props when they change - gunakan memoized value
+  useEffect(() => {
+    setLocalCartItems(memoizedCartItems);
+    setLocalCartCount(cartItemsCount);
+  }, [memoizedCartItems, cartItemsCount]);
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(price);
+  };
+
+  const removeFromCart = useCallback(async (productId: number) => {
+    try {
+      const response = await fetch(`/api/cart/remove/${productId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setLocalCartItems(data.cartItems || []);
+        setLocalCartCount(data.cartItems ? data.cartItems.reduce((total: number, item: any) => total + item.quantity, 0) : 0);
+      }
+    } catch (error) {
+      console.error('Error removing item:', error);
+    }
+  }, []);
+
+  const updateQuantity = useCallback(async (productId: number, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      removeFromCart(productId);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/cart/update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        },
+        body: JSON.stringify({
+          product_id: productId,
+          quantity: newQuantity
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setLocalCartItems(data.cartItems || []);
+        setLocalCartCount(data.cartItems ? data.cartItems.reduce((total: number, item: any) => total + item.quantity, 0) : 0);
+      }
+    } catch (error) {
+      console.error('Error updating quantity:', error);
+    }
+  }, [removeFromCart]);
 
   const handleLogout = () => {
     router.post('/customer/logout');
@@ -142,9 +216,9 @@ export default function ShopLayout({ children, cartItemsCount = 0, cartItems = [
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative">
                     <ShoppingCart className="h-5 w-5" />
-                    {cartItemsCount > 0 && (
-                      <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 text-xs flex items-center justify-center">
-                        {cartItemsCount}
+                    {localCartCount > 0 && (
+                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs bg-red-500 hover:bg-red-600">
+                        {localCartCount}
                       </Badge>
                     )}
                   </Button>
@@ -156,12 +230,12 @@ export default function ShopLayout({ children, cartItemsCount = 0, cartItems = [
                       Keranjang Belanja
                     </SheetTitle>
                     <SheetDescription>
-                      {cartItemsCount === 0 ? 'Keranjang kosong' : `${cartItemsCount} item dalam keranjang`}
+                      {localCartCount === 0 ? 'Keranjang kosong' : `${localCartCount} item dalam keranjang`}
                     </SheetDescription>
                   </SheetHeader>
                   
                   <div className="flex-1 overflow-y-auto py-4 min-h-0">
-                    {cartItems.length === 0 ? (
+                    {localCartItems.length === 0 ? (
                       <div className="flex flex-col items-center justify-center h-full text-center py-16">
                         <div className="w-32 h-32 bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 rounded-full flex items-center justify-center mb-6 shadow-lg">
                           <ShoppingCart className="h-16 w-16 text-blue-400" />
@@ -185,36 +259,68 @@ export default function ShopLayout({ children, cartItemsCount = 0, cartItems = [
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {cartItems.map((item, index) => (
+                        {localCartItems.map((item, index) => (
                           <div key={index} className="group flex items-start gap-3 p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-100 hover:border-blue-200">
                             <div className="w-16 h-16 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0 group-hover:shadow-md transition-shadow">
                               {item.product.gambar_produk ? (
                                 <img
-                                  src={item.product.gambar_produk}
+                                  src={`/storage/${item.product.gambar_produk}`}
                                   alt={item.product.nama_produk}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    target.nextElementSibling?.classList.remove('hidden');
+                                  }}
                                 />
-                              ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
-                                  <Package className="h-6 w-6 text-blue-400" />
-                                </div>
-                              )}
+                              ) : null}
+                              <div className={`w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center ${item.product.gambar_produk ? 'hidden' : ''}`}>
+                                <Package className="h-6 w-6 text-blue-400" />
+                              </div>
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-gray-900 text-sm leading-tight mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                                {item.product.nama_produk}
-                              </h4>
-                              <div className="flex items-center justify-between">
+                              <div className="flex items-start justify-between mb-2">
+                                <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2 group-hover:text-blue-600 transition-colors flex-1 pr-2">
+                                  {item.product.nama_produk}
+                                </h4>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => removeFromCart(item.product.id)}
+                                  className="text-red-500 hover:text-red-700 hover:bg-red-50 h-6 w-6 rounded-full flex-shrink-0"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <div className="space-y-2">
                                 <p className="text-sm font-bold text-blue-600">
-                                  {new Intl.NumberFormat('id-ID', {
-                                    style: 'currency',
-                                    currency: 'IDR',
-                                    minimumFractionDigits: 0,
-                                  }).format(item.product.harga_jual)}
+                                  {formatPrice(item.product.harga_jual)}
                                 </p>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
-                                    ×{item.quantity}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                                      className="h-6 w-6 rounded-md hover:bg-white"
+                                    >
+                                      <Minus className="h-3 w-3" />
+                                    </Button>
+                                    <span className="font-semibold text-sm min-w-[2rem] text-center text-gray-900">
+                                      {item.quantity}
+                                    </span>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                                      disabled={item.quantity >= item.product.stok_tersedia}
+                                      className="h-6 w-6 rounded-md hover:bg-white disabled:opacity-50"
+                                    >
+                                      <Plus className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                  <span className="text-xs font-bold text-gray-900">
+                                    {formatPrice(item.product.harga_jual * item.quantity)}
                                   </span>
                                 </div>
                               </div>
@@ -225,18 +331,14 @@ export default function ShopLayout({ children, cartItemsCount = 0, cartItems = [
                     )}
                   </div>
 
-                  {cartItems.length > 0 && (
+                  {localCartItems.length > 0 && (
                     <div className="border-t pt-4 mt-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 flex-shrink-0">
                       <div className="space-y-4 mb-4">
                         <div className="flex justify-between items-center">
                           <span className="text-sm font-medium text-gray-700">Subtotal:</span>
                           <span className="text-lg font-bold text-gray-900">
-                            {new Intl.NumberFormat('id-ID', {
-                              style: 'currency',
-                              currency: 'IDR',
-                              minimumFractionDigits: 0,
-                            }).format(
-                              cartItems.reduce((total, item) => total + (item.product.harga_jual * item.quantity), 0)
+                            {formatPrice(
+                              localCartItems.reduce((total, item) => total + (item.product.harga_jual * item.quantity), 0)
                             )}
                           </span>
                         </div>

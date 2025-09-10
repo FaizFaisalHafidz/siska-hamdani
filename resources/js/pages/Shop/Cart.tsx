@@ -1,9 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import ShopLayout from '@/layouts/shop-layout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, CreditCard, Minus, Plus, Shield, ShoppingCart, Trash2, Truck } from 'lucide-react';
@@ -62,27 +60,53 @@ export default function CartPage({ cartItems = [], availablePromoCodes = [], shi
     }).format(price);
   };
 
-  const updateQuantity = (productId: number, newQuantity: number) => {
+  const updateQuantity = async (productId: number, newQuantity: number) => {
     if (newQuantity <= 0) {
       removeFromCart(productId);
       return;
     }
 
-    setCart(prevCart => 
-      prevCart.map(item => 
-        item.product.id === productId 
-          ? { 
-              ...item, 
-              quantity: Math.min(newQuantity, item.product.stok_tersedia),
-              subtotal: item.product.harga_jual * Math.min(newQuantity, item.product.stok_tersedia)
-            }
-          : item
-      )
-    );
+    try {
+      const response = await fetch(`/api/cart/update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        },
+        body: JSON.stringify({
+          product_id: productId,
+          quantity: newQuantity
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCart(data.cartItems);
+      }
+    } catch (error) {
+      console.error('Error updating quantity:', error);
+    }
   };
 
-  const removeFromCart = (productId: number) => {
-    setCart(prevCart => prevCart.filter(item => item.product.id !== productId));
+  const removeFromCart = async (productId: number) => {
+    try {
+      const response = await fetch(`/api/cart/remove/${productId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCart(data.cartItems || []);
+      }
+    } catch (error) {
+      console.error('Error removing item:', error);
+    }
   };
 
   const applyPromoCode = () => {
@@ -140,7 +164,6 @@ export default function CartPage({ cartItems = [], availablePromoCodes = [], shi
       return;
     }
 
-    // Navigate to customer checkout page
     router.visit('/customer/checkout');
   };
 
@@ -149,23 +172,26 @@ export default function CartPage({ cartItems = [], availablePromoCodes = [], shi
       <ShopLayout cartItemsCount={0}>
         <Head title="Keranjang Belanja - Siska Copy" />
         
-        <div className="container mx-auto px-4 py-16">
-          <div className="max-w-2xl mx-auto text-center">
-            <div className="mb-8">
-              <ShoppingCart className="mx-auto h-24 w-24 text-gray-300" />
+        <div className="bg-gray-50 min-h-screen">
+          <div className="container mx-auto px-6 py-24">
+            <div className="max-w-2xl mx-auto text-center">
+              <div className="mb-8 p-6 bg-white rounded-full w-32 h-32 mx-auto flex items-center justify-center shadow-lg">
+                <ShoppingCart className="h-16 w-16 text-gray-300" />
+              </div>
+              <h1 className="text-4xl font-bold text-gray-900 mb-6">
+                Keranjang Belanja Anda Kosong
+              </h1>
+              <p className="text-xl text-gray-600 mb-12 leading-relaxed">
+                Sepertinya Anda belum menambahkan produk apapun ke keranjang belanja Anda.
+                Mari mulai berbelanja dan temukan produk-produk menarik!
+              </p>
+              <Link href="/shop">
+                <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200">
+                  <ArrowLeft className="mr-3 h-6 w-6" />
+                  Mulai Belanja
+                </Button>
+              </Link>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Keranjang Belanja Anda Kosong
-            </h1>
-            <p className="text-lg text-gray-600 mb-8">
-              Sepertinya Anda belum menambahkan produk apapun ke keranjang belanja Anda.
-            </p>
-            <Link href="/shop">
-              <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-                <ArrowLeft className="mr-2 h-5 w-5" />
-                Mulai Belanja
-              </Button>
-            </Link>
           </div>
         </div>
       </ShopLayout>
@@ -177,16 +203,16 @@ export default function CartPage({ cartItems = [], availablePromoCodes = [], shi
       <Head title="Keranjang Belanja - Siska Copy" />
       
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-12">
-        <div className="container mx-auto px-4">
+      <div className="bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 text-white py-16">
+        <div className="container mx-auto px-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold mb-2">Keranjang Belanja</h1>
-              <p className="text-blue-100">{getTotalItems()} item dalam keranjang Anda</p>
+            <div className="space-y-2">
+              <h1 className="text-4xl md:text-5xl font-bold mb-3">Keranjang Belanja</h1>
+              <p className="text-blue-100 text-lg">{getTotalItems()} item dalam keranjang Anda</p>
             </div>
             <Link href="/shop">
-              <Button variant="outline" className="border-white text-white hover:bg-white hover:text-blue-600">
-                <ArrowLeft className="mr-2 h-4 w-4" />
+              <Button variant="outline" className="border-2 border-white text-white hover:bg-white hover:text-blue-600 px-6 py-3 text-lg font-semibold rounded-xl transition-all duration-200 hover:shadow-lg">
+                <ArrowLeft className="mr-2 h-5 w-5" />
                 Lanjut Belanja
               </Button>
             </Link>
@@ -194,255 +220,292 @@ export default function CartPage({ cartItems = [], availablePromoCodes = [], shi
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="lg:grid lg:grid-cols-3 lg:gap-8">
-          {/* Cart Items */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="h-5 w-5" />
-                  Item dalam Keranjang ({cart.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {cart.map((item) => (
-                  <div key={item.product.id} className="flex flex-col sm:flex-row gap-4 p-4 border rounded-lg">
-                    <div className="w-full sm:w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
-                      {item.product.gambar_produk ? (
-                        <img
-                          src={`/storage/${item.product.gambar_produk}`}
-                          alt={item.product.nama_produk}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="text-2xl text-gray-400">📄</div>
-                      )}
+      <div className="bg-gray-50 min-h-screen">
+        <div className="container mx-auto px-6 py-12">
+          <div className="lg:grid lg:grid-cols-3 lg:gap-12">
+            {/* Cart Items */}
+            <div className="lg:col-span-2">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                <div className="border-b border-gray-100 p-6">
+                  <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 rounded-lg">
+                      <ShoppingCart className="h-6 w-6 text-blue-600" />
                     </div>
-                    
-                    <div className="flex-1 space-y-2">
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                    Item dalam Keranjang
+                    <span className="text-lg font-normal text-gray-500">({cart.length} item)</span>
+                  </h2>
+                </div>
+                <div className="p-6 space-y-6">
+                  {cart.map((item) => (
+                    <div key={item.product.id} className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+                      <div className="p-6">
+                        <div className="flex flex-col sm:flex-row gap-6">
+                          {/* Product Image */}
+                          <div className="w-full sm:w-32 h-32 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 border border-gray-200">
+                            {item.product.gambar_produk ? (
+                              <img
+                                src={`/storage/${item.product.gambar_produk}`}
+                                alt={item.product.nama_produk}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  target.nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                            ) : null}
+                            <div className={`text-4xl text-gray-300 ${item.product.gambar_produk ? 'hidden' : ''}`}>
+                              📦
+                            </div>
+                          </div>
+                          
+                          {/* Product Details */}
+                          <div className="flex-1 space-y-4">
+                            {/* Product Info & Remove Button */}
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                              <div className="space-y-2">
+                                <h3 className="font-bold text-xl text-gray-900">{item.product.nama_produk}</h3>
+                                <div className="flex flex-wrap gap-2">
+                                  <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                    {item.product.kategori.nama_kategori}
+                                  </Badge>
+                                  {item.product.merk_produk && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {item.product.merk_produk}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeFromCart(item.product.id)}
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full h-10 w-10"
+                              >
+                                <Trash2 className="h-5 w-5" />
+                              </Button>
+                            </div>
+                            
+                            {/* Quantity Controls & Price */}
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+                              <div className="flex items-center gap-4">
+                                <Label className="text-sm font-medium text-gray-700">Jumlah:</Label>
+                                <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                                    className="h-8 w-8 rounded-md hover:bg-white"
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </Button>
+                                  <span className="font-bold text-lg min-w-[3rem] text-center text-gray-900">
+                                    {item.quantity}
+                                  </span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                                    disabled={item.quantity >= item.product.stok_tersedia}
+                                    className="h-8 w-8 rounded-md hover:bg-white disabled:opacity-50"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                  Stok: {item.product.stok_tersedia}
+                                </span>
+                              </div>
+                              
+                              <div className="text-right space-y-1">
+                                <p className="text-sm text-gray-500">
+                                  {formatPrice(item.product.harga_jual)} × {item.quantity}
+                                </p>
+                                <p className="text-2xl font-bold text-blue-600">
+                                  {formatPrice(item.subtotal)}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Order Summary */}
+            <div className="mt-8 lg:mt-0">
+              <div className="space-y-6">
+                {/* Promo Code */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                  <div className="border-b border-gray-100 p-6">
+                    <h3 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+                      <div className="p-2 bg-green-50 rounded-lg">
+                        🎫
+                      </div>
+                      Kode Promo
+                    </h3>
+                  </div>
+                  <div className="p-6">
+                    {appliedPromo ? (
+                      <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl">
                         <div>
-                          <h3 className="font-semibold text-lg">{item.product.nama_produk}</h3>
-                          <Badge variant="outline" className="text-xs">
-                            {item.product.kategori.nama_kategori}
-                          </Badge>
-                          {item.product.merk_produk && (
-                            <p className="text-sm text-gray-600 mt-1">{item.product.merk_produk}</p>
-                          )}
+                          <p className="font-bold text-green-800 text-lg">{appliedPromo.code}</p>
+                          <p className="text-sm text-green-600">
+                            Diskon {appliedPromo.discount_type === 'percentage' 
+                              ? `${appliedPromo.discount_value}%` 
+                              : formatPrice(appliedPromo.discount_value)}
+                          </p>
                         </div>
                         <Button
                           variant="ghost"
-                          size="icon"
-                          onClick={() => removeFromCart(item.product.id)}
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          size="sm"
+                          onClick={removePromoCode}
+                          className="text-green-600 hover:text-green-800 rounded-full"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          Hapus
                         </Button>
                       </div>
-                      
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <Label className="text-sm font-medium">Jumlah:</Label>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                              className="h-8 w-8"
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <span className="font-semibold text-lg min-w-[3rem] text-center">
-                              {item.quantity}
-                            </span>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                              disabled={item.quantity >= item.product.stok_tersedia}
-                              className="h-8 w-8"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex gap-3">
+                          <Input
+                            placeholder="Masukkan kode promo"
+                            value={promoCode}
+                            onChange={(e) => setPromoCode(e.target.value)}
+                            className="flex-1"
+                          />
+                          <Button 
+                            onClick={applyPromoCode}
+                            disabled={!promoCode.trim()}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            Gunakan
+                          </Button>
+                        </div>
+                        {availablePromoCodes.length > 0 && (
+                          <div className="p-4 bg-gray-50 rounded-lg">
+                            <p className="text-sm font-medium text-gray-700 mb-2">Kode promo tersedia:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {availablePromoCodes.map((promo) => (
+                                <Badge
+                                  key={promo.code}
+                                  variant="outline"
+                                  className="cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                                  onClick={() => setPromoCode(promo.code)}
+                                >
+                                  {promo.code}
+                                </Badge>
+                              ))}
+                            </div>
                           </div>
-                          <span className="text-sm text-gray-500">
-                            (Stok: {item.product.stok_tersedia})
-                          </span>
-                        </div>
-                        
-                        <div className="text-right">
-                          <p className="text-sm text-gray-500">
-                            {formatPrice(item.product.harga_jual)} x {item.quantity}
-                          </p>
-                          <p className="text-xl font-bold text-blue-600">
-                            {formatPrice(item.subtotal)}
-                          </p>
-                        </div>
+                        )}
                       </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Shipping Options */}
+                {shippingOptions.length > 0 && (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div className="border-b border-gray-100 p-6">
+                      <h3 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+                        <div className="p-2 bg-orange-50 rounded-lg">
+                          <Truck className="h-6 w-6 text-orange-600" />
+                        </div>
+                        Pilih Pengiriman
+                      </h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      {shippingOptions.map((option) => (
+                        <div
+                          key={option.id}
+                          className={`p-4 border rounded-xl cursor-pointer transition-all duration-200 ${
+                            selectedShipping === option.id
+                              ? 'border-blue-500 bg-blue-50 shadow-sm'
+                              : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                          }`}
+                          onClick={() => setSelectedShipping(option.id)}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <p className="font-bold text-gray-900">{option.name}</p>
+                              <p className="text-sm text-gray-600">
+                                Estimasi: {option.estimated_days}
+                              </p>
+                            </div>
+                            <p className="font-bold text-lg text-blue-600">
+                              {option.price === 0 ? 'Gratis' : formatPrice(option.price)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
+                )}
 
-          {/* Order Summary */}
-          <div className="mt-8 lg:mt-0">
-            <div className="space-y-6">
-              {/* Promo Code */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Kode Promo</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {appliedPromo ? (
-                    <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <div>
-                        <p className="font-semibold text-green-800">{appliedPromo.code}</p>
-                        <p className="text-sm text-green-600">
-                          Diskon {appliedPromo.discount_type === 'percentage' 
-                            ? `${appliedPromo.discount_value}%` 
-                            : formatPrice(appliedPromo.discount_value)}
-                        </p>
+                {/* Order Summary */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 sticky top-6">
+                  <div className="border-b border-gray-100 p-6">
+                    <h3 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+                      <div className="p-2 bg-purple-50 rounded-lg">
+                        <CreditCard className="h-6 w-6 text-purple-600" />
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={removePromoCode}
-                        className="text-green-600 hover:text-green-800"
-                      >
-                        Hapus
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="Masukkan kode promo"
-                          value={promoCode}
-                          onChange={(e) => setPromoCode(e.target.value)}
-                        />
-                        <Button 
-                          onClick={applyPromoCode}
-                          disabled={!promoCode.trim()}
-                        >
-                          Gunakan
-                        </Button>
+                      Ringkasan Pesanan
+                    </h3>
+                  </div>
+                  <div className="p-6 space-y-6">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-600">Subtotal ({getTotalItems()} item)</span>
+                        <span className="font-semibold text-gray-900">{formatPrice(getSubtotal())}</span>
                       </div>
-                      {availablePromoCodes.length > 0 && (
-                        <div className="text-xs text-gray-500">
-                          <p>Kode promo tersedia:</p>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {availablePromoCodes.map((promo) => (
-                              <Badge
-                                key={promo.code}
-                                variant="outline"
-                                className="cursor-pointer hover:bg-gray-100"
-                                onClick={() => setPromoCode(promo.code)}
-                              >
-                                {promo.code}
-                              </Badge>
-                            ))}
-                          </div>
+                      
+                      {appliedPromo && (
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-green-600">Diskon ({appliedPromo.code})</span>
+                          <span className="font-semibold text-green-600">-{formatPrice(getDiscount())}</span>
+                        </div>
+                      )}
+                      
+                      {selectedShipping && (
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-gray-600">Ongkos Kirim</span>
+                          <span className="font-semibold text-gray-900">
+                            {getShippingCost() === 0 ? 'Gratis' : formatPrice(getShippingCost())}
+                          </span>
                         </div>
                       )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Shipping Options */}
-              {shippingOptions.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Truck className="h-5 w-5" />
-                      Pilih Pengiriman
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {shippingOptions.map((option) => (
-                      <div
-                        key={option.id}
-                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                          selectedShipping === option.id
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                        onClick={() => setSelectedShipping(option.id)}
+                    
+                    <div className="border-t border-gray-200 pt-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xl font-bold text-gray-900">Total</span>
+                        <span className="text-2xl font-bold text-blue-600">{formatPrice(getTotal())}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4 pt-2">
+                      <Button 
+                        onClick={proceedToCheckout}
+                        disabled={cart.length === 0}
+                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-lg py-6 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                        size="lg"
                       >
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <p className="font-medium">{option.name}</p>
-                            <p className="text-sm text-gray-600">
-                              Estimasi: {option.estimated_days}
-                            </p>
-                          </div>
-                          <p className="font-semibold">
-                            {option.price === 0 ? 'Gratis' : formatPrice(option.price)}
-                          </p>
-                        </div>
+                        <CreditCard className="mr-3 h-6 w-6" />
+                        {auth.user ? 'Lanjut ke Pembayaran' : 'Login & Checkout'}
+                      </Button>
+                      
+                      <div className="flex items-center justify-center gap-2 text-sm text-gray-600 bg-gray-50 py-3 rounded-lg">
+                        <Shield className="h-4 w-4 text-green-500" />
+                        <span>Transaksi 100% aman & terpercaya</span>
                       </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Order Summary */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Ringkasan Pesanan</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Subtotal ({getTotalItems()} item)</span>
-                      <span>{formatPrice(getSubtotal())}</span>
-                    </div>
-                    
-                    {appliedPromo && (
-                      <div className="flex justify-between text-green-600">
-                        <span>Diskon ({appliedPromo.code})</span>
-                        <span>-{formatPrice(getDiscount())}</span>
-                      </div>
-                    )}
-                    
-                    {selectedShipping && (
-                      <div className="flex justify-between">
-                        <span>Ongkos Kirim</span>
-                        <span>
-                          {getShippingCost() === 0 ? 'Gratis' : formatPrice(getShippingCost())}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex justify-between text-lg font-bold">
-                    <span>Total</span>
-                    <span className="text-blue-600">{formatPrice(getTotal())}</span>
-                  </div>
-                  
-                  <div className="space-y-2 pt-4">
-                    <Button 
-                      onClick={proceedToCheckout}
-                      disabled={cart.length === 0}
-                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                      size="lg"
-                    >
-                      <CreditCard className="mr-2 h-5 w-5" />
-                      {auth.user ? 'Lanjut ke Pembayaran' : 'Login & Checkout'}
-                    </Button>
-                    
-                    <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
-                      <Shield className="h-4 w-4" />
-                      <span>Transaksi 100% aman & terpercaya</span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
           </div>
         </div>
