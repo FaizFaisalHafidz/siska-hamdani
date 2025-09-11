@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Shop;
 
 use App\Http\Controllers\Controller;
 use App\Models\CartItem;
+use App\Models\TmDataPelanggan;
 use App\Models\TmDataProduk;
 use App\Models\TtDataPenjualan;
 use App\Models\TtDetailPenjualan;
@@ -254,12 +255,18 @@ class CustomerOrderController extends Controller
             DB::beginTransaction();
             Log::info('Database transaction started');
 
+            // Get customer data to get the user_id for customer_id FK
+            $customer = TmDataPelanggan::find($customerId);
+            if (!$customer) {
+                throw new \Exception("Customer tidak ditemukan");
+            }
+
             // Prepare order data with all required fields
             $orderData = [
                 'nomor_invoice' => $this->generateInvoiceNumber(),
                 'tanggal_penjualan' => now(),
-                'customer_id' => $customerId,
-                'pelanggan_id' => $customerId, // For backward compatibility
+                'customer_id' => $customer->user_id, // FK to users.id
+                'pelanggan_id' => $customerId, // FK to tm_data_pelanggan.id
                 'kasir_id' => 1, // Default for online orders
                 'total_harga' => $total,
                 'total_belanja' => $subtotal,
