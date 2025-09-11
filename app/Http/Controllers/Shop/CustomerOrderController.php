@@ -332,15 +332,46 @@ class CustomerOrderController extends Controller
      */
     public function orderSuccess($orderId)
     {
-        $order = TtDataPenjualan::with(['details.produk', 'pelanggan'])
+        $order = TtDataPenjualan::with(['details.produk', 'customer'])
             ->where('id', $orderId)
             ->firstOrFail();
 
         // Debug: Log the order data to see what's being sent
         Log::info('Order data for OrderSuccess:', $order->toArray());
 
+        // Transform data to match frontend interface
+        $transformedOrder = [
+            'id' => $order->id,
+            'nomor_invoice' => $order->nomor_invoice,
+            'total_harga' => $order->total_harga,
+            'ongkos_kirim' => $order->biaya_pengiriman ?? 0, // Map biaya_pengiriman to ongkos_kirim
+            'metode_pengiriman' => $order->metode_pengiriman,
+            'alamat_pengiriman' => $order->alamat_pengiriman,
+            'jarak_km' => $order->jarak_km,
+            'metode_pembayaran' => $order->metode_pembayaran,
+            'catatan_pesanan' => $order->catatan_pesanan,
+            'tanggal_penjualan' => $order->tanggal_penjualan,
+            'details' => $order->details->map(function ($detail) {
+                return [
+                    'id' => $detail->id,
+                    'produk' => [
+                        'nama_produk' => $detail->produk->nama_produk,
+                        'harga' => $detail->produk->harga,
+                    ],
+                    'jumlah_beli' => $detail->jumlah_beli,
+                    'harga_satuan' => $detail->harga_satuan,
+                    'subtotal' => $detail->subtotal,
+                ];
+            }),
+            'pelanggan' => $order->customer ? [
+                'nama_pelanggan' => $order->customer->nama_pelanggan,
+                'nomor_hp' => $order->customer->nomor_hp, // Now uses accessor
+                'alamat' => $order->customer->alamat, // Now uses accessor
+            ] : null,
+        ];
+
         return Inertia::render('Customer/OrderSuccess', [
-            'order' => $order
+            'order' => $transformedOrder
         ]);
     }
 

@@ -189,4 +189,28 @@ class TmDataPelanggan extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    /**
+     * Accessor for consistent field naming - nomor_hp
+     */
+    public function getNomorHpAttribute()
+    {
+        return $this->nomor_telepon;
+    }
+
+    /**
+     * Accessor for consistent field naming - alamat
+     */
+    public function getAlamatAttribute()
+    {
+        return $this->alamat_pelanggan;
+    }
+
+    /**
+     * Accessor for consistent field naming - email
+     */
+    public function getEmailAttribute()
+    {
+        return $this->email_pelanggan;
+    }
 }
