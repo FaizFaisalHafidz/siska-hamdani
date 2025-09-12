@@ -118,6 +118,11 @@ class CustomerAuthController extends Controller
      */
     public function showLoginForm()
     {
+        // Force clear any existing corrupted session
+        if (session()->has('_token')) {
+            session()->regenerateToken();
+        }
+        
         return Inertia::render('auth/CustomerLogin');
     }
 

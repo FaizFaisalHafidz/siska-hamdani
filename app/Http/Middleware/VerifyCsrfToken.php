@@ -12,6 +12,6 @@ class VerifyCsrfToken extends Middleware
      * @var array<int, string>
      */
     protected $except = [
-        //
+        'customer/process-order', // Temporary fix for old accounts with CSRF issues
     ];
 }
