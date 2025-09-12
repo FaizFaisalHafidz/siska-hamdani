@@ -136,6 +136,9 @@ class CustomerAuthController extends Controller
 
         if (Auth::attempt($credentials, $remember)) {
             $request->session()->regenerate();
+            
+            // Force regenerate CSRF token for clean session
+            $request->session()->regenerateToken();
 
             $user = Auth::user();
             
@@ -240,5 +243,23 @@ class CustomerAuthController extends Controller
         } while ($exists);
 
         return $newCode;
+    }
+
+    /**
+     * Clear session for CSRF token issues
+     */
+    public function clearSession(Request $request)
+    {
+        // Force logout if authenticated
+        if (Auth::check()) {
+            Auth::logout();
+        }
+        
+        // Clear all session data
+        $request->session()->flush();
+        $request->session()->regenerate();
+        $request->session()->regenerateToken();
+        
+        return redirect()->route('customer.login')->with('success', 'Session dibersihkan. Silakan login kembali.');
     }
 }

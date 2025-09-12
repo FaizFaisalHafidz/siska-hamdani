@@ -14,6 +14,9 @@ Route::middleware('guest')->group(function () {
     Route::post('/customer/login', [CustomerAuthController::class, 'login']);
 });
 
+// Force clear session for CSRF issues
+Route::get('/customer/clear-session', [CustomerAuthController::class, 'clearSession'])->name('customer.clear-session');
+
 // Customer Checkout Routes (without middleware for testing)
 Route::get('/customer/checkout', [CustomerOrderController::class, 'checkout'])->name('customer.checkout');
 Route::post('/customer/calculate-shipping', [CustomerOrderController::class, 'calculateShipping'])->name('customer.calculate-shipping');
